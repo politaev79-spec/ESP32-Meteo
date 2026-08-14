@@ -1,0 +1,59 @@
+# PlatformIO
+.pio/
+.pioenvs/
+.piolibdeps/
+.vscode/.c_cpp_properties.json
+.vscode/c_cpp_properties.json
+
+# Build artifacts
+build/
+dist/
+*.o
+*.a
+*.so
+*.dylib
+*.dll
+*.exe
+*.out
+*.app
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# System
+Thumbs.db
+*.tmp
+
+# Secrets & Config (ВАЖНО!)
+.env
+.env.local
+config.local.h
+secrets.h
+*.key
+*.pem
+*.crt
+
+# COM Port logs
+*.log
+usbLog_*.txt
+
+# Backups
+*.bak
+*.bak_*
+*~
+
+# Python venv (if used locally)
+venv/
+__pycache__/
+*.pyc
+
+# Output files
+*.bin
+*.elf
+*.map
+firmware.bin
