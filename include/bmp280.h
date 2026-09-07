@@ -27,10 +27,18 @@ public:
     // Returns true and fills temp (C) and pressure (Pa) if read OK.
     bool read(float &temp, float &pressure) {
         int32_t adc_T, adc_P;
-        if (!readRaw(0xFA, adc_T)) return false;
-        if (!readRaw(0xF7, adc_P)) return false;
+        if (!readRaw(0xFA, adc_T)) return false;      // температура
         temp = calcTemp(adc_T);
-        pressure = calcPressure(adc_P);
+
+        // Усредняем несколько сэмплов давления, чтобы сгладить шум сенсора
+        // (уменьшает «прыжки» вычисляемой барометрической высоты).
+        int64_t psum = 0; int pcnt = 0;
+        for (int i = 0; i < 5; i++) {
+            if (readRaw(0xF7, adc_P)) { psum += calcPressure(adc_P); pcnt++; }
+            delay(2);
+        }
+        if (pcnt == 0) return false;
+        pressure = (float)psum / (float)pcnt;
         return true;
     }
 
@@ -112,7 +120,9 @@ private:
         var1 = (((int64_t)dig_P9) * (p >> 13) * (p >> 13)) >> 25;
         var2 = (((int64_t)dig_P8) * p) >> 19;
         p = ((p + var1 + var2) >> 8) + (((int64_t)dig_P7) << 4);
-        return (float)p;
+        // 64-битная формула возвращает p в единицах 1/256 Па.
+        // Делим на 256, чтобы получить Па (по даташиту Bosch/Adafruit).
+        return (float)(p / 256.0);
     }
 };
 
