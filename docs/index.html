@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Метеостанция · Дашборд</title>
+<style>
+:root{
+  --bg:#0e1116; --panel:#161b22; --line:#2a3038; --txt:#e6edf3; --dim:#8a93a6;
+  --acc:#3d9bff; --ok:#3fb950; --warn:#d29922;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--txt);font-family:'Segoe UI',system-ui,-apple-system,sans-serif;padding:16px;min-height:100vh}
+.wrap{max-width:880px;margin:0 auto}
+h1{font-size:1.3rem;margin-bottom:12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.dot{width:10px;height:10px;border-radius:50%;background:var(--warn);flex:none}
+.dot.on{background:var(--ok)}
+.muted{color:var(--dim);font-size:.8rem}
+.bar{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:14px;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.bar input{flex:1;min-width:180px;background:var(--bg);border:1px solid var(--line);color:var(--txt);border-radius:8px;padding:8px 10px;font-size:.9rem}
+.bar button{background:var(--acc);color:#fff;border:none;border-radius:8px;padding:8px 14px;cursor:pointer;font-size:.9rem}
+.chip{background:var(--bg);border:1px solid var(--line);color:var(--dim);border-radius:20px;padding:5px 12px;cursor:pointer;font-size:.8rem;user-select:none}
+.chip:hover{color:var(--txt);border-color:var(--acc)}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:14px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;cursor:pointer;transition:border-color .15s}
+.card:hover{border-color:var(--acc)}
+.card .lbl{color:var(--dim);font-size:.8rem;margin-bottom:8px}
+.card .val{font-size:1.9rem;font-weight:600}
+.card .unit{font-size:.85rem;color:var(--dim);font-weight:400}
+.card .sub{color:var(--dim);font-size:.75rem;margin-top:6px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:14px}
+.panel h2{font-size:.95rem;margin-bottom:10px;color:var(--dim);font-weight:500}
+.rbtn{background:var(--bg);border:1px solid var(--line);color:var(--txt);border-radius:8px;padding:6px 12px;cursor:pointer;font-size:.85rem;margin:0 6px 6px 0}
+.rbtn.active{background:var(--acc);color:#fff;border-color:var(--acc)}
+#map{height:260px;border-radius:10px}
+.leaflet-container{background:var(--bg);font-family:inherit}
+@media(max-width:520px){.card .val{font-size:1.5rem}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🌡 Метеостанция <span class="dot" id="dot"></span><span class="muted" id="status">подключение…</span></h1>
+
+  <div class="bar">
+    <span class="muted">Станция:</span>
+    <input id="host" placeholder="http://esp.local">
+    <button onclick="applyHost()">Подключить</button>
+    <span class="chip" onclick="quickHost('http://esp.local')">esp.local</span>
+    <span class="chip" onclick="quickHost('http://192.168.5.1')">192.168.5.1</span>
+  </div>
+
+  <div class="grid">
+    <div class="card" onclick="setMetric('out')"><div class="lbl">Улица</div><div class="val"><span id="v_out">--</span> <span class="unit">°C</span></div></div>
+    <div class="card" onclick="setMetric('in')"><div class="lbl">Дом</div><div class="val"><span id="v_in">--</span> <span class="unit">°C</span></div></div>
+    <div class="card" onclick="setMetric('press')"><div class="lbl">Давление</div><div class="val"><span id="v_press">--</span> <span class="unit">мм</span></div><div class="sub">ур. моря · абс. <span id="v_abs">--</span></div></div>
+    <div class="card" onclick="setMetric('alt')"><div class="lbl">Высота</div><div class="val"><span id="v_alt">--</span> <span class="unit">м</span></div><div class="sub">над ур. моря</div></div>
+  </div>
+  <div class="panel">
+    <h2 id="chartTitle">График: Улица</h2>
+    <div>
+      <button class="rbtn active" id="m_out" onclick="setMetric('out')">Улица</button>
+      <button class="rbtn" id="m_in" onclick="setMetric('in')">Дом</button>
+      <button class="rbtn" id="m_press" onclick="setMetric('press')">Давление</button>
+      <button class="rbtn" id="m_alt" onclick="setMetric('alt')">Высота</button>
+    </div>
+    <div>
+      <button class="rbtn active" id="r_day" onclick="setRange('day')">День</button>
+      <button class="rbtn" id="r_week" onclick="setRange('week')">Неделя</button>
+      <button class="rbtn" id="r_month" onclick="setRange('month')">Месяц</button>
+      <button class="rbtn" id="r_year" onclick="setRange('year')">Год</button>
+    </div>
+    <div style="height:280px"><canvas id="chart"></canvas></div>
+  </div>
+
+  <div class="panel">
+    <h2>Карта</h2>
+    <div id="map"></div>
+  </div>
+
+  <div class="muted" id="foot">Обновление каждые 15 с</div>
+</div>
+
+<script>
+var HOST = localStorage.getItem('meteo_host') || 'http://esp.local';
+var metric='out', range='day', chart=null, map=null, marker=null, libsReady=false;
+var metricNames={out:'Улица',in:'Дом',press:'Давление',alt:'Высота'};
+var metricUnits={out:'°C',in:'°C',press:'мм рт. ст.',alt:'м'};
+
+document.getElementById('host').value = HOST;
+
+function u(p){ return HOST + p; }
+function quickHost(h){ document.getElementById('host').value = h; applyHost(); }
+
+function applyHost(){
+  var h = document.getElementById('host').value.trim();
+  if(!h) return;
+  if(!/^https?:\/\//i.test(h)) h = 'http://' + h;
+  localStorage.setItem('meteo_host', h);
+  location.reload();
+}
+
+function loadCss(href){ var l=document.createElement('link'); l.rel='stylesheet'; l.href=href; document.head.appendChild(l); }
+function loadJs(src, cb){ var s=document.createElement('script'); s.src=src; s.onload=function(){ if(cb) cb(); }; s.onerror=function(){ if(cb) cb(); }; document.head.appendChild(s); }
+
+function bootstrap(){
+  loadCss(u('/leaflet.css'));
+  loadJs(u('/leaflet.js'), function(){
+    loadJs(u('/chart.js'), function(){
+      libsReady = true;
+      refresh();
+      loadChart();
+    });
+  });
+}
+
+function setStatus(on, txt){
+  document.getElementById('dot').className = on ? 'dot on' : 'dot';
+  document.getElementById('status').textContent = txt;
+}
+
+function refresh(){
+  fetch(u('/api')).then(function(r){ return r.json(); }).then(function(d){
+    if(d && d.ok){
+      var ip = d.staip || d.apip || '';
+      setStatus(true, 'online' + (ip ? ' · ' + ip : ''));
+      document.getElementById('v_out').textContent   = (d.out<-500) ? '--' : d.out.toFixed(1);
+      document.getElementById('v_in').textContent    = d.temp.toFixed(1);
+      document.getElementById('v_press').textContent = d.press.toFixed(1);
+      document.getElementById('v_abs').textContent   = (d.pressAbs!=null) ? d.pressAbs.toFixed(1) : '--';
+      document.getElementById('v_alt').textContent   = d.alt.toFixed(1);
+      if(typeof L !== 'undefined') initMap(d.lat, d.lon);
+    } else {
+      setStatus(false, 'датчики не найдены');
+    }
+  }).catch(function(){ setStatus(false, 'нет связи со станцией'); });
+}
+
+function setMetric(m){
+  metric = m;
+  document.getElementById('chartTitle').textContent = 'График: ' + metricNames[m];
+  document.querySelectorAll('[id^="m_"]').forEach(function(b){ b.classList.remove('active'); });
+  document.getElementById('m_' + m).classList.add('active');
+  loadChart();
+}
+
+function setRange(r){
+  range = r;
+  document.querySelectorAll('[id^="r_"]').forEach(function(b){ b.classList.remove('active'); });
+  document.getElementById('r_' + r).classList.add('active');
+  loadChart();
+}
+function loadChart(){
+  if(!libsReady || typeof Chart === 'undefined') return;
+  fetch(u('/history?metric=' + metric + '&range=' + range)).then(function(r){ return r.json(); }).then(function(d){
+    var data = d.data || [], labels = [], vals = [];
+    for(var i=0;i<data.length;i++){ if(data[i]<=-900) continue; labels.push(d.labels[i]); vals.push(data[i]); }
+    var ctx = document.getElementById('chart').getContext('2d');
+    if(chart) chart.destroy();
+    chart = new Chart(ctx,{type:'line',data:{labels:labels,datasets:[{label:metricNames[metric]+', '+metricUnits[metric],data:vals,borderColor:'#3d9bff',backgroundColor:'rgba(61,155,255,.15)',fill:true,tension:0.3,pointRadius:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#8a93a6',maxTicksLimit:8,autoSkip:true},grid:{color:'rgba(138,147,166,.1)'}},y:{ticks:{color:'#8a93a6'},grid:{color:'rgba(138,147,166,.1)'}}}}});
+  }).catch(function(){});
+}
+
+var mapInit = false;
+function initMap(lat, lon){
+  if(mapInit || typeof L === 'undefined') return;
+  if(!lat || !lon) return;
+  mapInit = true;
+  map = L.map('map').setView([lat, lon], 15);
+  L.tileLayer(u('/tile?z={z}&x={x}&y={y}'), { maxZoom: 19 }).addTo(map);
+  marker = L.circleMarker([lat, lon], {radius:8, color:'#3d9bff', fillColor:'#3d9bff', fillOpacity:0.85}).addTo(map);
+}
+
+bootstrap();
+refresh();
+setInterval(refresh, 15000);
+</script>
+</body>
+</html>
+
+

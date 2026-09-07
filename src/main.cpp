@@ -427,6 +427,7 @@ void setup() {
     geocodeBegin(); // /geocode + /elevation (прокси внешних API через интернет станции)
     staticFilesBegin(); // /leaflet.js /leaflet.css /tile (карта без CDN)
     otaBegin();     // /ota + /update (обновление прошивки)
+    server.enableCORS(true);   // разрешаем дашборду обращаться к API с любого адреса
     server.begin();
 
     LOG.println("Web server: http://" + WiFi.softAPIP().toString());
