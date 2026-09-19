@@ -51,6 +51,33 @@ public:
         return false;
     }
 
+    // --- Неблокирующее чтение (2 фазы), чтобы не тормозить веб-сервер ---
+    // 1) Запустить преобразование (быстро, ~1 мс).
+    bool startConversion() {
+        if (!_ds->reset()) return false;                  // нет presence
+        _ds->skip();                                      // SKIP ROM
+        _ds->write(0x44, 1);                              // Convert T
+        return true;
+    }
+
+    // 2) Прочитать результат — вызывать через 750+ мс после startConversion().
+    bool readResult(float &temp) {
+        uint8_t data[9];
+        if (!_ds->reset()) return false;
+        _ds->skip();
+        _ds->write(0xBE);                                 // Read scratchpad
+        for (int i = 0; i < 9; i++) data[i] = _ds->read();
+        if (crc8(data, 8) != data[8]) return false;
+        int16_t raw = (int16_t)((data[1] << 8) | data[0]);
+        if (raw < -1120 || raw > 2000) return false;
+        uint8_t cfg = data[4] & 0x60;
+        if      (cfg == 0x00) raw &= ~7;
+        else if (cfg == 0x20) raw &= ~3;
+        else if (cfg == 0x40) raw &= ~1;
+        temp = (float)raw / 16.0;
+        return true;
+    }
+
 private:
     OneWire *_ds = nullptr;
 

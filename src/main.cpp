@@ -334,12 +334,21 @@ void setup() {
 
 void loop() {
     server.handleClient();
+    uint32_t now = millis();
 
-    if ((uint32_t)(millis() - g_lastRead) >= SENSOR_INTERVAL_MS) {
-        g_lastRead = millis();
-        if (sensorsPoll()) {
-            historyAdd(g_outTemp, g_temp, g_refPressure, g_alt);   // давление к ур. моря + реальная высота
-        }
+    // Живой опрос датчиков (частый) — вывод в терминал + свежие данные на странице
+    if ((uint32_t)(now - g_lastRead) >= SENSOR_LIVE_MS) {
+        g_lastRead = now;
+        sensorsPoll();
     }
+
+    // Запись в историю — раз в SENSOR_INTERVAL_MS (15 мин).
+    // Первый семпл пишем сразу после старта.
+    static uint32_t lastHist = (uint32_t)(0 - SENSOR_INTERVAL_MS);
+    if ((uint32_t)(now - lastHist) >= SENSOR_INTERVAL_MS) {
+        lastHist = now;
+        historyAdd(g_outTemp, g_temp, g_refPressure, g_alt);   // давление к ур. моря + реальная высота
+    }
+
     delay(1);
 }

@@ -70,25 +70,39 @@ void sensorsBegin() {
     }
 }
 
-bool sensorsPoll() {
-    float t_bmp, p, t_ds;
-    bool okBmp = bmp.read(t_bmp, p);
-    bool okDs  = ds.read(t_ds);
+static bool dsBusy = false;
+static uint32_t dsStart = 0;
 
-    if (okBmp || okDs) {
-        g_ok = true;
-        if (okBmp) {
-            g_temp = t_bmp + g_bmpOff;
-            g_press = p;
-            g_refPressure = calcSeaLevelPressure(p);   // к уровню моря
-            g_alt = g_refAlt;                           // реальная высота станции
+bool sensorsPoll() {
+    // BMP280 — быстрый (I2C), читаем сразу
+    float t_bmp, p;
+    bool okBmp = bmp.read(t_bmp, p);
+
+    // DS18B20 — неблокирующая конвертация (~750 мс): запускаем и читаем по готовности,
+    // чтобы веб-сервер не «залипал» на delay(1000).
+    bool okDs = false;
+    if (dsBusy) {
+        if ((uint32_t)(millis() - dsStart) >= 800) {
+            float td;
+            if (ds.readResult(td)) { g_outTemp = td + g_dsOff; g_hasDs = true; okDs = true; }
+            dsBusy = false;
         }
-        if (okDs) { g_outTemp = t_ds + g_dsOff; g_hasDs = true; }
-        LOG.printf("[OK] Улица=%.2f C Дом=%.2f C P=%.2f (sea %.2f) mmHg Alt=%.1f m\r\n",
-                   okDs ? g_outTemp : -999.0f, g_temp, g_press / 133.322f, g_refPressure / 133.322f, g_alt);
-        return true;
     }
-    g_ok = false;
-    LOG.println("[ERR] sensors read failed");
-    return false;
+    if (!dsBusy) { dsBusy = ds.startConversion(); dsStart = millis(); }
+
+    if (okBmp) {
+        g_temp = t_bmp + g_bmpOff;
+        g_press = p;
+        g_refPressure = calcSeaLevelPressure(p);   // к уровню моря
+        g_alt = g_refAlt;                           // реальная высота станции
+    }
+    g_ok = okBmp || g_hasDs;
+
+    // ---- Живой вывод в терминал (отладка в реальном времени) ----
+    uint32_t up = millis() / 1000;
+    LOG.printf("[%02lu:%02lu:%02lu] Улица %7.2f C | Дом %6.2f C | P %7.2f (абс %7.2f) мм рт.ст. | Высота %4.0f м\r\n",
+               (unsigned long)(up / 3600), (unsigned long)((up / 60) % 60), (unsigned long)(up % 60),
+               g_hasDs ? g_outTemp : -999.0f, g_temp,
+               g_refPressure / 133.322f, g_press / 133.322f, g_alt);
+    return okBmp || okDs;
 }
