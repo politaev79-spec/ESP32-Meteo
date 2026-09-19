@@ -65,12 +65,7 @@ h1{font-size:1.3rem;margin-bottom:12px;display:flex;align-items:center;gap:10px;
   <div class="panel">
     <h2>Настройки станции</h2>
     <div class="cfg">
-      <label class="full">Населённый пункт (поиск)<input id="cf_place" placeholder="напр. Томск"></label>
-      <div class="full"><button class="sbtn" onclick="searchPlace()">Найти</button> <span class="muted">нужен интернет на телефоне</span></div>
-      <div id="cf_results" class="full"></div>
-      <label>Широта<input id="cf_lat" type="number" step="0.00001" value="0"></label>
-      <label>Долгота<input id="cf_lon" type="number" step="0.00001" value="0"></label>
-      <label>Высота над ур. моря, м<input id="cf_refalt" type="number" step="1" value="0"></label>
+      <label class="full">Высота над ур. моря, м<input id="cf_refalt" type="number" step="1" value="0"></label>
       <label>Поправка ул. T, °C<input id="cf_dsoff" type="number" step="0.1" value="0"></label>
       <label>Поправка дома T, °C<input id="cf_bmpoff" type="number" step="0.1" value="0"></label>
       <div class="full"><button class="sbtn" onclick="saveCfg()">Сохранить</button> <span class="muted" id="cfgMsg"></span></div>
@@ -124,8 +119,6 @@ function refresh(){
 // Заполняем поля настроек один раз (чтобы не затирать то, что вводит пользователь).
 function fillCfg(d){
   if(cfgFilled) return;
-  document.getElementById('cf_lat').value    = d.lat;
-  document.getElementById('cf_lon').value    = d.lon;
   document.getElementById('cf_refalt').value = d.refalt;
   document.getElementById('cf_dsoff').value  = d.dsoff;
   document.getElementById('cf_bmpoff').value = d.bmpoff;
@@ -157,9 +150,7 @@ function loadChart(){
 }
 // --- сохранение настроек на станцию ---
 function saveCfg(){
-  var q='lat='+encodeURIComponent(document.getElementById('cf_lat').value||0)
-       +'&lon='+encodeURIComponent(document.getElementById('cf_lon').value||0)
-       +'&refalt='+encodeURIComponent(document.getElementById('cf_refalt').value||0)
+  var q='refalt='+encodeURIComponent(document.getElementById('cf_refalt').value||0)
        +'&dsoff='+encodeURIComponent(document.getElementById('cf_dsoff').value||0)
        +'&bmpoff='+encodeURIComponent(document.getElementById('cf_bmpoff').value||0);
   var m=document.getElementById('cfgMsg');
@@ -170,70 +161,6 @@ function saveCfg(){
     m.textContent='✓ Сохранено (высота '+d.refalt+' м)';
     refresh();
   }).catch(function(){ m.textContent='Ошибка сохранения'; });
-}
-
-// --- поиск населённого пункта (Photon, интернет телефона) ---
-function translitRu(s){
-  var t={'shch':'щ','sch':'щ','sh':'ш','ch':'ч','zh':'ж','ya':'я','yu':'ю','yo':'ё','ye':'е','kh':'х','ts':'ц','a':'а','b':'б','v':'в','g':'г','d':'д','e':'е','z':'з','i':'и','j':'й','k':'к','l':'л','m':'м','n':'н','o':'о','p':'п','r':'р','s':'с','t':'т','u':'у','f':'ф','h':'х','c':'ц','y':'ы','w':'в','x':'кс'};
-  var s2=s.toLowerCase(),out='',i=0;
-  while(i<s2.length){var hit=false;for(var len=3;len>=1&&!hit;len--){var sub=s2.substr(i,len);if(t[sub]){out+=t[sub];i+=len;hit=true;}}if(!hit){out+=s2[i];i++;}}
-  return out;
-}
-function mergeFeats(results){
-  var seen={},feats=[];
-  results.forEach(function(res){(res.features||[]).forEach(function(f){
-    var p=f.properties||{};if(!p.name)return;
-    var key=(p.osm_type||'')+':'+(p.osm_id||'')+':'+p.name;
-    if(seen[key])return;seen[key]=1;feats.push(f);
-  });});
-  return feats;
-}
-function renderResults(list,feats){
-  if(!feats.length){list.innerHTML='Не найдено';return;}
-  list.innerHTML='';
-  feats.forEach(function(f){
-    var p=f.properties||{};
-    var label=(p.name||'?')+', '+((p.state||p.district||p.city)||'')+', '+(p.country||'');
-    var d=document.createElement('div');d.className='res';d.textContent=label;
-    d.onclick=function(){pickPlace(f);};
-    list.appendChild(d);
-  });
-}
-function searchPlace(){
-  var q=document.getElementById('cf_place').value.trim();
-  var list=document.getElementById('cf_results');
-  if(!q){list.innerHTML='Введите название';return;}
-  list.innerHTML='Поиск…';
-  var queries=[q];
-  var tr=translitRu(q);
-  if(tr&&tr!==q.toLowerCase())queries.unshift(tr);
-  var fetchAll=function(base){
-    return Promise.all(queries.map(function(x){return fetch(base+encodeURIComponent(x)).then(function(r){return r.json();});}));
-  };
-  fetchAll('https://photon.komoot.io/api/?q=').then(function(results){
-    renderResults(list,mergeFeats(results));
-  }).catch(function(){list.innerHTML='Нужен интернет на телефоне для поиска города';});
-}
-function getElevation(lat,lon,cb){
-  // высота по координатам — open-meteo (CORS), интернет телефона
-  fetch('https://api.open-meteo.com/v1/elevation?latitude='+lat+'&longitude='+lon)
-    .then(function(r){return r.json();}).then(function(d){
-      if(d&&d.elevation&&d.elevation.length)cb({results:[{elevation:d.elevation[0]}]});
-      else cb(null);
-    }).catch(function(){cb(null);});
-}
-function pickPlace(f){
-  var lon=f.geometry.coordinates[0],lat=f.geometry.coordinates[1];
-  var p=f.properties||{};
-  document.getElementById('cf_lat').value=lat;
-  document.getElementById('cf_lon').value=lon;
-  document.getElementById('cf_place').value=(p.name||'')+', '+(p.country||'');
-  document.getElementById('cf_results').innerHTML='';
-  document.getElementById('cfgMsg').textContent='Определяю высоту…';
-  getElevation(lat,lon,function(d){
-    if(d&&d.results&&d.results.length)document.getElementById('cf_refalt').value=Math.round(d.results[0].elevation);
-    saveCfg();
-  });
 }
 
 bootstrap();

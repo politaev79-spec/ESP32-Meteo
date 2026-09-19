@@ -33,8 +33,6 @@ static void handleApi() {
     s += ",\"press\":" + String(g_refPressure / 133.322f, 1);   // приведено к уровню моря (мм рт. ст.)
     s += ",\"pressAbs\":" + String(g_press / 133.322f, 1);      // абсолютное на станции (мм рт. ст.)
     s += ",\"alt\":" + String(g_alt, 1);
-    s += ",\"lat\":" + String(g_lat, 6);
-    s += ",\"lon\":" + String(g_lon, 6);
     s += ",\"refalt\":" + String(g_refAlt, 1);
     s += ",\"dsoff\":" + String(g_dsOff, 1);
     s += ",\"bmpoff\":" + String(g_bmpOff, 1);
@@ -45,8 +43,6 @@ static void handleApi() {
 
 // ---- Изменение настроек через Web UI ----
 static void handleSave() {
-    if (server.hasArg("lat"))    g_lat    = server.arg("lat").toFloat();
-    if (server.hasArg("lon"))    g_lon    = server.arg("lon").toFloat();
     if (server.hasArg("refalt")) g_refAlt = server.arg("refalt").toFloat();
     if (server.hasArg("dsoff"))  g_dsOff  = server.arg("dsoff").toFloat();
     if (server.hasArg("bmpoff")) g_bmpOff = server.arg("bmpoff").toFloat();
@@ -56,8 +52,7 @@ static void handleSave() {
     g_alt = g_refAlt;                                // реальная высота станции
 
     String s = "{";
-    s += "\"lat\":" + String(g_lat, 6) + ",\"lon\":" + String(g_lon, 6);
-    s += ",\"refalt\":" + String(g_refAlt, 1) + ",\"dsoff\":" + String(g_dsOff, 1);
+    s += "\"refalt\":" + String(g_refAlt, 1) + ",\"dsoff\":" + String(g_dsOff, 1);
     s += ",\"bmpoff\":" + String(g_bmpOff, 1);
     s += "}";
     server.send(200, "application/json", s);

@@ -18,4 +18,4 @@ extern volatile float g_refPressure;    // давление, приведённ�
 extern volatile uint32_t g_lastRead;
 
 // Настройки (определяются в settings.cpp)
-extern float g_lat, g_lon, g_refAlt, g_dsOff, g_bmpOff;
+extern float g_refAlt, g_dsOff, g_bmpOff;
