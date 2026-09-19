@@ -103,7 +103,7 @@ void loop() {
     static uint32_t lastHist = (uint32_t)(0 - SENSOR_INTERVAL_MS);
     if ((uint32_t)(now - lastHist) >= SENSOR_INTERVAL_MS) {
         lastHist = now;
-        historyAdd(g_outTemp, g_temp, g_refPressure, g_alt);   // давление к ур. моря + реальная высота
+        historyAdd(g_outTemp, g_temp, g_press, g_alt);   // в историю — давление НА СТАНЦИИ (абсолютное)
     }
 
     delay(1);

@@ -42,7 +42,7 @@ h1{font-size:1.3rem;margin-bottom:12px;display:flex;align-items:center;gap:10px;
   <div class="grid">
     <div class="card" onclick="setMetric('out')"><div class="lbl">Улица</div><div class="val"><span id="v_out">--</span> <span class="unit">°C</span></div></div>
     <div class="card" onclick="setMetric('in')"><div class="lbl">Дом</div><div class="val"><span id="v_in">--</span> <span class="unit">°C</span></div></div>
-    <div class="card" onclick="setMetric('press')"><div class="lbl">Давление</div><div class="val"><span id="v_press">--</span> <span class="unit">мм</span></div><div class="sub">ур. моря · абс. <span id="v_abs">--</span></div></div>
+    <div class="card" onclick="setMetric('press')"><div class="lbl">Давление на станции</div><div class="val"><span id="v_abs">--</span> <span class="unit">мм рт. ст.</span></div><div class="sub">на ур. моря: <span id="v_press">--</span></div></div>
     <div class="card" style="cursor:default"><div class="lbl">Высота</div><div class="val"><span id="v_alt">--</span> <span class="unit">м</span></div><div class="sub">над ур. моря</div></div>
   </div>
   <div class="panel">
@@ -69,7 +69,7 @@ h1{font-size:1.3rem;margin-bottom:12px;display:flex;align-items:center;gap:10px;
       <label>Поправка дома T, °C<input id="cf_bmpoff" type="number" step="0.1" value="0"></label>
       <div class="full"><button class="sbtn" onclick="saveCfg()">Сохранить</button> <span class="muted" id="cfgMsg"></span></div>
     </div>
-    <div class="muted" style="margin-top:10px">От высоты зависит приведение давления к уровню моря. Станция автономна (без интернета) — высоту вводите вручную.</div>
+    <div class="muted" style="margin-top:10px">«Давление на станции» — то, что реально измеряет датчик на вашей высоте. «На ур. моря» — то же давление, пересчитанное на уровень моря (метеостандарт, для сравнения с прогнозами). От высоты зависит только эта пересчитанная величина.</div>
   </div>
 
   <div class="muted">Обновление каждые 15 с · <span id="footHost"></span></div>
@@ -78,7 +78,7 @@ h1{font-size:1.3rem;margin-bottom:12px;display:flex;align-items:center;gap:10px;
 <script>
 var HOST = (location.protocol === 'file:') ? 'http://esp.local' : location.origin;
 var metric='out', range='day', chart=null, libsReady=false, cfgFilled=false;
-var metricNames={out:'Улица',in:'Дом',press:'Давление'};
+var metricNames={out:'Улица',in:'Дом',press:'Давление на станции'};
 var metricUnits={out:'°C',in:'°C',press:'мм рт. ст.'};
 
 document.getElementById('footHost').textContent = HOST;

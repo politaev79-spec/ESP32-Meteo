@@ -1,5 +1,6 @@
 #include "history.h"
 #include "utils.h"
+#include "log.h"
 #include <time.h>
 #include <LittleFS.h>
 #include <Preferences.h>
@@ -17,6 +18,7 @@ struct Sample {
 
 static const int CAPACITY = 35040;      // ~365 дней при 15-мин интервале (полный год)
 static const char *HIST_FILE = "/history.bin";
+static const uint16_t HIST_VER = 2;     // версия формата: менять при смене смысла полей (сброс истории)
 
 static Preferences hPrefs;
 static uint32_t g_head = 0;    // позиция следующей записи (0..CAPACITY-1)
@@ -32,6 +34,16 @@ void historyBegin() {
         return;   // без файловой системы история не пишется
     }
     hPrefs.begin("hist", false);
+
+    // Смена формата/смысла записей => сбрасываем старую историю (иначе графики будут враньём).
+    if (hPrefs.getUShort("ver", 1) != HIST_VER) {
+        LittleFS.remove(HIST_FILE);
+        hPrefs.putUShort("ver", HIST_VER);
+        hPrefs.putUInt("head", 0);
+        hPrefs.putUInt("count", 0);
+        LOG.printf("История: формат обновлён (v%u) — буфер очищен\r\n", (unsigned)HIST_VER);
+    }
+
     g_head  = hPrefs.getUInt("head", 0);
     g_count = hPrefs.getUInt("count", 0);
     if (g_count > CAPACITY) g_count = CAPACITY;
