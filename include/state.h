@@ -19,7 +19,3 @@ extern volatile uint32_t g_lastRead;
 
 // Настройки (определяются в settings.cpp)
 extern float g_lat, g_lon, g_refAlt, g_dsOff, g_bmpOff;
-extern int   g_netMode;                 // 0=только AP, 2=AP+домашний Wi-Fi (интернет)
-extern String g_ssid[MAX_NET];
-extern String g_pwd[MAX_NET];
-extern int   g_netCnt;

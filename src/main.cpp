@@ -8,7 +8,6 @@
 #include "wifi_mgr.h"
 #include "ota.h"
 #include "history.h"
-#include "geocode.h"
 #include "static_files.h"
 #include <time.h>
 
@@ -83,8 +82,8 @@ h1{font-size:1.2rem;font-weight:600;margin-bottom:16px}
   </div>
   <div style="height:260px"><canvas id="chart"></canvas></div>
 </div>
-<div class="ref">Обновление: раз в 15 мин · AP: ESP32-Meteo · 192.168.5.1</div>
-<div class="ref" id="staip">Доступ: --</div>
+<div class="ref">Обновление: раз в 15 мин · AP: ESP32-Meteo · http://192.168.4.1</div>
+<div class="ref" id="staip">Доступ: http://192.168.4.1 · http://esp.local</div>
 <div class="ref" id="coords">Координаты: --</div>
 <div class="card" style="margin-top:14px">
   <div class="lbl">Карта мира — кликните, чтобы выбрать точку станции</div>
@@ -101,17 +100,7 @@ h1{font-size:1.2rem;font-weight:600;margin-bottom:16px}
   <label>Высота места над ур. моря, м<input id="cf_refalt" type="number" step="1" value="0"></label>
   <label>Поправка ул. T, °C<input id="cf_dsoff" type="number" step="0.1" value="0"></label>
   <label>Поправка дома T, °C<input id="cf_bmpoff" type="number" step="0.1" value="0"></label>
-  <div class="net-note">Порядок: ① список → ② выбор из меню → ③ пароль → Сохранить. Можно сохранить несколько сетей.</div>
-  <label>Режим сети<select id="cf_netmode">
-    <option value="0">Только AP (без интернета)</option>
-    <option value="2">AP + домашний Wi-Fi (интернет)</option>
-  </select></label>
-  <button onclick="scanWifi()">① Список сетей (обновить меню)</button>
-  <label>② Выбор сети<select id="cf_netselect"><option value="">-- выберите из меню --</option></select></label>
-  <label>③ Пароль<input id="cf_pwd" type="password" autocomplete="off" value=""></label>
-  <button onclick="togglePwd()">👁 показать/скрыть пароль</button>
-  <button onclick="addNet()">Сохранить сеть</button>
-  <div id="cf_saved"></div>
+  <div class="net-note">Станция работает автономно — только точка доступа «ESP32-Meteo» (http://192.168.4.1). Настройка Wi-Fi не требуется.</div>
   <button onclick="saveCfg()">Сохранить</button>
 </div>
 </div>
@@ -121,7 +110,7 @@ function initMap(lat,lon){
   if(mapInit||typeof L==='undefined') return;
   mapInit=true;
   gmap=L.map('map').setView([lat,lon],15);
-  L.tileLayer('/tile?z={z}&x={x}&y={y}',{maxZoom:19}).addTo(gmap);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(gmap);
   gmarker=L.circleMarker([lat,lon],{radius:8,color:'#3d9bff',fillColor:'#3d9bff',fillOpacity:0.85}).addTo(gmap);
   document.getElementById('mapInfo').textContent='Текущая точка: '+lat.toFixed(5)+', '+lon.toFixed(5);
   gmap.on('click',function(e){mapPick(e.latlng.lat,e.latlng.lng);});
@@ -149,30 +138,17 @@ function load(){fetch('/api').then(r=>r.json()).then(d=>{
     document.getElementById('pabs').textContent=(d.pressAbs!=null)?d.pressAbs.toFixed(1):'--';
     document.getElementById('a').textContent=d.alt.toFixed(1);
     document.getElementById('coords').textContent='Координаты: '+d.lat.toFixed(5)+', '+d.lon.toFixed(5);
-    document.getElementById('staip').textContent='Доступ: esp.local · AP '+d.apip+(d.staip?(' · Дом '+d.staip):'');
+    document.getElementById('staip').textContent='Доступ: http://'+d.apip+' · http://esp.local';
     fillCfg(d);
     initMap(d.lat,d.lon);
   } else { off.style.display='block'; }
 }).catch(()=>{document.getElementById('off').style.display='block';});}
-function renderSavedNetworks(nets){
-  var c=document.getElementById('cf_saved');
-  c.innerHTML='';
-  if(!nets||!nets.length){c.innerHTML='<div class="net-note">Сохранённые сети: нет</div>';return;}
-  var h='Сохранённые сети:';
-  nets.forEach(function(n,i){
-    h+='<div class="res">'+n.ssid+'<button style="float:right" onclick="delNet('+i+')">Удалить</button></div>';
-  });
-  c.innerHTML=h;
-}
 function fillCfg(d){
   document.getElementById('cf_lat').value=d.lat;
   document.getElementById('cf_lon').value=d.lon;
   document.getElementById('cf_refalt').value=d.refalt;
   document.getElementById('cf_dsoff').value=d.dsoff;
   document.getElementById('cf_bmpoff').value=d.bmpoff;
-  document.getElementById('cf_netmode').value=d.netmode;
-  document.getElementById('cf_pwd').value='';
-  renderSavedNetworks(d.networks||[]);
 }
 function translitRu(s){
   var t={'shch':'щ','sch':'щ','sh':'ш','ch':'ч','zh':'ж','ya':'я','yu':'ю','yo':'ё','ye':'е','kh':'х','ts':'ц','a':'а','b':'б','v':'в','g':'г','d':'д','e':'е','z':'з','i':'и','j':'й','k':'к','l':'л','m':'м','n':'н','o':'о','p':'п','r':'р','s':'с','t':'т','u':'у','f':'ф','h':'х','c':'ц','y':'ы','w':'в','x':'кс'};
@@ -211,21 +187,18 @@ function searchPlace(){
   var fetchAll=function(base){
     return Promise.all(queries.map(function(x){return fetch(base+encodeURIComponent(x)).then(function(r){return r.json();});}));
   };
-  // двойной доступ: 1) интернет станции, 2) интернет телефона (если станция без сети)
-  fetchAll('/geocode?q=').then(function(results){
-    var feats=mergeFeats(results);
-    if(feats.length){renderResults(list,feats);return;}
-    return fetchAll('https://photon.komoot.io/api/?q=').then(function(results2){renderResults(list,mergeFeats(results2));});
-  }).catch(function(){
-    fetchAll('https://photon.komoot.io/api/?q=').then(function(results2){renderResults(list,mergeFeats(results2));}).catch(function(){list.innerHTML='Ошибка: нет интернета ни на станции, ни на телефоне';});
-  });
+  // поиск через интернет телефона (станция автономна, без интернета)
+  fetchAll('https://photon.komoot.io/api/?q=').then(function(results){
+    renderResults(list,mergeFeats(results));
+  }).catch(function(){list.innerHTML='Нужен интернет на телефоне для поиска города';});
 }
 function getElevation(lat,lon,cb){
-  var direct='https://api.open-elevation.com/api/v1/lookup?locations='+lat+','+lon;
-  fetch('/elevation?lat='+lat+'&lon='+lon).then(r=>r.json()).then(function(d){
-    if(d&&d.results&&d.results.length){cb(d);}
-    else{fetch(direct).then(r=>r.json()).then(cb).catch(cb);}
-  }).catch(function(){fetch(direct).then(r=>r.json()).then(cb).catch(cb);});
+  // станция автономна — высоту берём из интернета телефона (open-meteo, CORS)
+  fetch('https://api.open-meteo.com/v1/elevation?latitude='+lat+'&longitude='+lon)
+    .then(function(r){return r.json();}).then(function(d){
+      if(d&&d.elevation&&d.elevation.length)cb({results:[{elevation:d.elevation[0]}]});
+      else cb(null);
+    }).catch(function(){cb(null);});
 }
 function pickPlace(f){
   var lon=f.geometry.coordinates[0],lat=f.geometry.coordinates[1];
@@ -245,47 +218,12 @@ function pickPlace(f){
     saveCfg(true);
   });
 }
-function scanWifi(){
-  var sel=document.getElementById('cf_netselect');
-  sel.innerHTML='<option value="">Загрузка…</option>';
-  fetch('/scan').then(r=>r.json()).then(res=>{
-    sel.innerHTML='<option value="">-- выберите из меню --</option>';
-    if(!res||!res.length){sel.innerHTML='<option value="">Не найдено сетей</option>';return;}
-    res.forEach(function(net){
-      var o=document.createElement('option');
-      o.value=net.ssid;
-      o.textContent=net.ssid+'  ('+net.rssi+' dBm)';
-      sel.appendChild(o);
-    });
-  }).catch(()=>{sel.innerHTML='<option value="">Ошибка сканирования</option>';});
-}
-function togglePwd(){
-  var p=document.getElementById('cf_pwd');
-  p.type=(p.type==='password')?'text':'password';
-}
-function addNet(){
-  var ssid=document.getElementById('cf_netselect').value;
-  var pwd=document.getElementById('cf_pwd').value;
-  if(!ssid){alert('Сначала выберите сеть из меню (①)');return;}
-  if(!pwd){alert('Введите пароль (③)');return;}
-  fetch('/netadd?ssid='+encodeURIComponent(ssid)+'&pwd='+encodeURIComponent(pwd))
-    .then(r=>r.json()).then(d=>{
-      if(d.ok){document.getElementById('cf_pwd').value='';renderSavedNetworks(d.networks||[]);alert('Сеть сохранена');}
-      else alert('Ошибка: '+JSON.stringify(d));
-    }).catch(()=>{alert('Ошибка сохранения');});
-}
-function delNet(i){
-  fetch('/netdel?i='+i).then(r=>r.json()).then(d=>{
-    if(d.ok){renderSavedNetworks(d.networks||[]);}
-  }).catch(()=>{});
-}
 function saveCfg(silent){
   var q='lat='+encodeURIComponent(document.getElementById('cf_lat').value||0)
         +'&lon='+encodeURIComponent(document.getElementById('cf_lon').value||0)
         +'&refalt='+encodeURIComponent(document.getElementById('cf_refalt').value||0)
         +'&dsoff='+encodeURIComponent(document.getElementById('cf_dsoff').value||0)
-        +'&bmpoff='+encodeURIComponent(document.getElementById('cf_bmpoff').value||0)
-        +'&netmode='+encodeURIComponent(document.getElementById('cf_netmode').value||0);
+        +'&bmpoff='+encodeURIComponent(document.getElementById('cf_bmpoff').value||0);
   fetch('/save?'+q).then(r=>r.json()).then(d=>{
     fillCfg(d);
     document.getElementById('coords').textContent='Координаты: '+d.lat.toFixed(5)+', '+d.lon.toFixed(5);
@@ -338,10 +276,6 @@ static void handleApi() {
     s += ",\"refalt\":" + String(g_refAlt, 1);
     s += ",\"dsoff\":" + String(g_dsOff, 1);
     s += ",\"bmpoff\":" + String(g_bmpOff, 1);
-    s += ",\"netmode\":" + String(g_netMode);
-    s += ",\"networks\":" + networksJson();
-    String staIp = (WiFi.status() == WL_CONNECTED) ? WiFi.localIP().toString() : "";
-    s += ",\"staip\":\"" + staIp + "\"";
     s += ",\"apip\":\"" + WiFi.softAPIP().toString() + "\"";
     s += "}";
     server.send(200, "application/json", s);
@@ -354,12 +288,7 @@ static void handleSave() {
     if (server.hasArg("refalt")) g_refAlt = server.arg("refalt").toFloat();
     if (server.hasArg("dsoff"))  g_dsOff  = server.arg("dsoff").toFloat();
     if (server.hasArg("bmpoff")) g_bmpOff = server.arg("bmpoff").toFloat();
-    if (server.hasArg("netmode")) {
-        g_netMode = server.arg("netmode").toInt();
-        if (g_netMode < 0 || g_netMode > 2) g_netMode = 2;   // защита от неверного значения
-    }
     settingsSave();
-    wifiApply();   // применить режим сети
 
     g_refPressure = calcSeaLevelPressure(g_press);   // пересчитать давление к уровню моря по новой высоте
     g_alt = g_refAlt;                                // реальная высота станции
@@ -368,34 +297,8 @@ static void handleSave() {
     s += "\"lat\":" + String(g_lat, 6) + ",\"lon\":" + String(g_lon, 6);
     s += ",\"refalt\":" + String(g_refAlt, 1) + ",\"dsoff\":" + String(g_dsOff, 1);
     s += ",\"bmpoff\":" + String(g_bmpOff, 1);
-    s += ",\"netmode\":" + String(g_netMode) + ",\"networks\":" + networksJson();
     s += "}";
     server.send(200, "application/json", s);
-}
-
-// ---- Добавить сеть в сохранённые (SSID + пароль) ----
-static void handleNetAdd() {
-    if (!server.hasArg("ssid")) { server.send(400, "text/plain", "no ssid"); return; }
-    String ss = server.arg("ssid");
-    String pw = server.arg("pwd");
-    if (!networksAdd(ss, pw)) { server.send(400, "text/plain", "add failed"); return; }
-    String r = "{\"ok\":true,\"networks\":" + networksJson() + "}";
-    server.send(200, "application/json", r);
-}
-
-// ---- Удалить сеть из сохранённых по индексу ----
-static void handleNetDel() {
-    if (!server.hasArg("i")) { server.send(400, "text/plain", "no i"); return; }
-    int i = server.arg("i").toInt();
-    if (i < 0 || i >= g_netCnt) { server.send(400, "text/plain", "bad i"); return; }
-    networksDel(i);
-    String r = "{\"ok\":true,\"networks\":" + networksJson() + "}";
-    server.send(200, "application/json", r);
-}
-
-// ---- Сканирование доступных Wi-Fi сетей ----
-static void handleScan() {
-    server.send(200, "application/json", wifiScanJson());
 }
 
 // ---- История показаний (графики) ----
@@ -410,8 +313,8 @@ void setup() {
     delay(200);
     LOG.println("ESP32-C3 Метеостанция (BMP280 + DS18B20)");
 
-    settingsLoad();    // настройки из NVS (координаты, поправки, сети)
-    wifiApply();       // сеть (AP / STA / AP+STA)
+    settingsLoad();    // настройки из NVS (координаты, поправки)
+    wifiApply();       // точка доступа (автономный режим)
     historyBegin();    // история показаний (кольцевой буфер)
     configTime(TZ_OFFSET_SECONDS, 0, "pool.ntp.org", "time.google.com");  // время по NTP
     sensorsBegin();    // датчики + первичное чтение
@@ -420,12 +323,8 @@ void setup() {
     server.on("/", HTTP_GET, handleRoot);
     server.on("/api", HTTP_GET, handleApi);
     server.on("/save", HTTP_GET, handleSave);
-    server.on("/scan", HTTP_GET, handleScan);
-    server.on("/netadd", HTTP_GET, handleNetAdd);
-    server.on("/netdel", HTTP_GET, handleNetDel);
     server.on("/history", HTTP_GET, handleHistory);
-    geocodeBegin(); // /geocode + /elevation (прокси внешних API через интернет станции)
-    staticFilesBegin(); // /leaflet.js /leaflet.css /tile (карта без CDN)
+    staticFilesBegin(); // /leaflet.js /leaflet.css /chart.js /dashboard (всё локально)
     otaBegin();     // /ota + /update (обновление прошивки)
     server.enableCORS(true);   // разрешаем дашборду обращаться к API с любого адреса
     server.begin();
@@ -434,7 +333,6 @@ void setup() {
 }
 
 void loop() {
-    wifiPoll();           // фоновое подключение к домашней сети + реконнект
     server.handleClient();
 
     if ((uint32_t)(millis() - g_lastRead) >= SENSOR_INTERVAL_MS) {

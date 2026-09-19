@@ -46,7 +46,7 @@ h1{font-size:1.3rem;margin-bottom:12px;display:flex;align-items:center;gap:10px;
     <input id="host" placeholder="http://esp.local">
     <button onclick="applyHost()">Подключить</button>
     <span class="chip" onclick="quickHost('http://esp.local')">esp.local</span>
-    <span class="chip" onclick="quickHost('http://192.168.5.1')">192.168.5.1</span>
+    <span class="chip" onclick="quickHost('http://192.168.4.1')">192.168.4.1</span>
   </div>
 
   <div class="grid">
@@ -166,7 +166,7 @@ function initMap(lat, lon){
   if(!lat || !lon) return;
   mapInit = true;
   map = L.map('map').setView([lat, lon], 15);
-  L.tileLayer(u('/tile?z={z}&x={x}&y={y}'), { maxZoom: 19 }).addTo(map);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
   marker = L.circleMarker([lat, lon], {radius:8, color:'#3d9bff', fillColor:'#3d9bff', fillOpacity:0.85}).addTo(map);
 }
 
