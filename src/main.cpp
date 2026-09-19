@@ -61,7 +61,7 @@ h1{font-size:1.2rem;font-weight:600;margin-bottom:16px}
 .rbtn.active{background:var(--acc);color:#fff;border-color:var(--acc)}
 @media(max-width:520px){.card .val{font-size:1.6rem}}
 </style></head>
-<body><a href="/ota" style="position:fixed;top:8px;left:8px;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:5px 10px;color:var(--acc);text-decoration:none;font-size:.8rem;z-index:999">⚙ OTA</a><div class="wrap">
+<body><a href="/ota" style="position:fixed;top:8px;left:8px;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:5px 10px;color:var(--acc);text-decoration:none;font-size:.8rem;z-index:999">⚙ OTA</a><a href="/dashboard" style="position:fixed;top:8px;left:82px;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:5px 10px;color:var(--acc);text-decoration:none;font-size:.8rem;z-index:999">📊 Дашборд</a><div class="wrap">
 <h1>🌡 Метеостанция (ESP32-C3 + BMP280/DS18B20)</h1>
 <div id="off" class="off" style="display:none">Датчики не найдены. Проверь I2C-пины и питание.</div>
 <div class="grid">

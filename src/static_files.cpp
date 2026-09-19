@@ -25,6 +25,14 @@ static void handleChartJs() {
     f.close();
 }
 
+// Отдельная страница-дашборд (data/dashboard.html)
+static void handleDashboard() {
+    File f = LittleFS.open("/dashboard.html", "r");
+    if (!f) { server.send(404, "text/html; charset=utf-8", "<h3>dashboard.html не загружен в LittleFS</h3>"); return; }
+    server.streamFile(f, "text/html; charset=utf-8");
+    f.close();
+}
+
 // Прокси тайла OpenStreetMap: /tile?z=..&x=..&y=..  (интернет станции)
 static void handleTile() {
     String z = server.arg("z"), x = server.arg("x"), y = server.arg("y");
@@ -58,5 +66,6 @@ void staticFilesBegin() {
     server.on("/leaflet.js", HTTP_GET, handleLeafletJs);
     server.on("/leaflet.css", HTTP_GET, handleLeafletCss);
     server.on("/chart.js", HTTP_GET, handleChartJs);
+    server.on("/dashboard", HTTP_GET, handleDashboard);
     server.on("/tile", HTTP_GET, handleTile);
 }
