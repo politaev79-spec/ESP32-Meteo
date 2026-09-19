@@ -18,7 +18,7 @@ struct Sample {
 
 static const int CAPACITY = 35040;      // ~365 дней при 15-мин интервале (полный год)
 static const char *HIST_FILE = "/history.bin";
-static const uint16_t HIST_VER = 2;     // версия формата: менять при смене смысла полей (сброс истории)
+static const uint16_t HIST_VER = 3;     // версия формата: менять при смене смысла полей (сброс истории)
 
 static Preferences hPrefs;
 static uint32_t g_head = 0;    // позиция следующей записи (0..CAPACITY-1)
@@ -35,31 +35,31 @@ void historyBegin() {
     }
     hPrefs.begin("hist", false);
 
-    // Смена формата/смысла записей => сбрасываем старую историю (иначе графики будут враньём).
-    if (hPrefs.getUShort("ver", 1) != HIST_VER) {
+    size_t need = (size_t)CAPACITY * sizeof(Sample);
+
+    // Файла нет или он меньше нужного (первый запуск / перепрошивка LittleFS)?
+    File f = LittleFS.open(HIST_FILE, "r");
+    bool fresh = (!f || f.size() < need);
+    if (f) f.close();
+
+    // Сбрасываем буфер: файл создаётся заново ИЛИ сменился формат/смысл записей.
+    // Иначе счётчики в NVS указывали бы на несуществующие записи (график = нули).
+    if (fresh || hPrefs.getUShort("ver", 1) != HIST_VER) {
         LittleFS.remove(HIST_FILE);
+        File nf = LittleFS.open(HIST_FILE, "w");
+        if (nf) { nf.seek(need - 1); nf.write((uint8_t)0); nf.close(); }
+        g_head = 0; g_count = 0;
         hPrefs.putUShort("ver", HIST_VER);
         hPrefs.putUInt("head", 0);
         hPrefs.putUInt("count", 0);
-        LOG.printf("История: формат обновлён (v%u) — буфер очищен\r\n", (unsigned)HIST_VER);
+        LOG.printf("История: буфер очищен (новый файл / формат v%u)\r\n", (unsigned)HIST_VER);
+        return;
     }
 
     g_head  = hPrefs.getUInt("head", 0);
     g_count = hPrefs.getUInt("count", 0);
     if (g_count > CAPACITY) g_count = CAPACITY;
     if (g_head >= CAPACITY) g_head = 0;
-
-    // Предвыделяем файл до CAPACITY * sizeof(Sample) (один раз).
-    size_t need = (size_t)CAPACITY * sizeof(Sample);
-    File f = LittleFS.open(HIST_FILE, "r");
-    if (!f || f.size() < need) {
-        if (f) f.close();
-        f = LittleFS.open(HIST_FILE, "r+");
-        if (!f) f = LittleFS.open(HIST_FILE, "w");
-        if (f) { f.seek(need - 1); f.write((uint8_t)0); f.close(); }
-    } else {
-        f.close();
-    }
 }
 
 void historyAdd(float outT, float inT, float pressPa, float altM) {
