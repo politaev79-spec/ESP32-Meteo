@@ -32,8 +32,9 @@ h1{font-size:1.3rem;margin-bottom:12px;display:flex;align-items:center;gap:10px;
 .panel h2{font-size:.95rem;margin-bottom:10px;color:var(--dim);font-weight:500}
 .rbtn{background:var(--bg);border:1px solid var(--line);color:var(--txt);border-radius:8px;padding:6px 12px;cursor:pointer;font-size:.85rem;margin:0 6px 6px 0}
 .rbtn.active{background:var(--acc);color:#fff;border-color:var(--acc)}
-#map{height:260px;border-radius:10px}
-.leaflet-container{background:var(--bg);font-family:inherit}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.panel input{background:var(--bg);border:1px solid var(--line);color:var(--txt);border-radius:8px;padding:8px 10px;font-size:.95rem;width:130px}
+.panel .sbtn{background:var(--acc);color:#fff;border:none;border-radius:8px;padding:8px 14px;cursor:pointer;font-size:.9rem}
 @media(max-width:520px){.card .val{font-size:1.5rem}}
 </style>
 </head>
@@ -73,8 +74,14 @@ h1{font-size:1.3rem;margin-bottom:12px;display:flex;align-items:center;gap:10px;
   </div>
 
   <div class="panel">
-    <h2>Карта</h2>
-    <div id="map"></div>
+    <h2>Высота над уровнем моря (для приведения давления)</h2>
+    <div class="row">
+      <input id="refalt" type="number" step="1" placeholder="например 185">
+      <span class="muted">м</span>
+      <button class="sbtn" onclick="saveAlt()">Сохранить</button>
+      <span class="muted" id="altMsg"></span>
+    </div>
+    <div class="muted" style="margin-top:8px">Станция автономна (без интернета) — высоту вводите вручную.</div>
   </div>
 
   <div class="muted" id="foot">Обновление каждые 15 с</div>
@@ -82,7 +89,7 @@ h1{font-size:1.3rem;margin-bottom:12px;display:flex;align-items:center;gap:10px;
 
 <script>
 var HOST = localStorage.getItem('meteo_host') || ((location.protocol === 'file:') ? 'http://esp.local' : location.origin);
-var metric='out', range='day', chart=null, map=null, marker=null, libsReady=false;
+var metric='out', range='day', chart=null, libsReady=false;
 var metricNames={out:'Улица',in:'Дом',press:'Давление',alt:'Высота'};
 var metricUnits={out:'°C',in:'°C',press:'мм рт. ст.',alt:'м'};
 
@@ -103,13 +110,10 @@ function loadCss(href){ var l=document.createElement('link'); l.rel='stylesheet'
 function loadJs(src, cb){ var s=document.createElement('script'); s.src=src; s.onload=function(){ if(cb) cb(); }; s.onerror=function(){ if(cb) cb(); }; document.head.appendChild(s); }
 
 function bootstrap(){
-  loadCss(u('/leaflet.css'));
-  loadJs(u('/leaflet.js'), function(){
-    loadJs(u('/chart.js'), function(){
-      libsReady = true;
-      refresh();
-      loadChart();
-    });
+  loadJs(u('/chart.js'), function(){
+    libsReady = true;
+    refresh();
+    loadChart();
   });
 }
 
@@ -128,7 +132,8 @@ function refresh(){
       document.getElementById('v_press').textContent = d.press.toFixed(1);
       document.getElementById('v_abs').textContent   = (d.pressAbs!=null) ? d.pressAbs.toFixed(1) : '--';
       document.getElementById('v_alt').textContent   = d.alt.toFixed(1);
-      if(typeof L !== 'undefined') initMap(d.lat, d.lon);
+      var ai = document.getElementById('refalt');
+      if(ai && document.activeElement !== ai) ai.value = (d.refalt!=null) ? d.refalt : '';
     } else {
       setStatus(false, 'датчики не найдены');
     }
@@ -160,14 +165,15 @@ function loadChart(){
   }).catch(function(){});
 }
 
-var mapInit = false;
-function initMap(lat, lon){
-  if(mapInit || typeof L === 'undefined') return;
-  if(!lat || !lon) return;
-  mapInit = true;
-  map = L.map('map').setView([lat, lon], 15);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
-  marker = L.circleMarker([lat, lon], {radius:8, color:'#3d9bff', fillColor:'#3d9bff', fillOpacity:0.85}).addTo(map);
+function saveAlt(){
+  var el = document.getElementById('refalt');
+  var v = el.value.trim();
+  if(v === '' || isNaN(parseFloat(v))){ document.getElementById('altMsg').textContent = 'Введите число'; return; }
+  document.getElementById('altMsg').textContent = 'Сохранение…';
+  fetch(u('/save?refalt=' + encodeURIComponent(v))).then(function(r){ return r.json(); }).then(function(d){
+    document.getElementById('altMsg').textContent = '✓ Сохранено: ' + d.refalt + ' м';
+    refresh();
+  }).catch(function(){ document.getElementById('altMsg').textContent = 'Ошибка сохранения'; });
 }
 
 bootstrap();
