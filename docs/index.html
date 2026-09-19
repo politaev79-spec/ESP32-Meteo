@@ -43,7 +43,7 @@ h1{font-size:1.3rem;margin-bottom:12px;display:flex;align-items:center;gap:10px;
     <div class="card" onclick="setMetric('out')"><div class="lbl">Улица</div><div class="val"><span id="v_out">--</span> <span class="unit">°C</span></div></div>
     <div class="card" onclick="setMetric('in')"><div class="lbl">Дом</div><div class="val"><span id="v_in">--</span> <span class="unit">°C</span></div></div>
     <div class="card" onclick="setMetric('press')"><div class="lbl">Давление</div><div class="val"><span id="v_press">--</span> <span class="unit">мм</span></div><div class="sub">ур. моря · абс. <span id="v_abs">--</span></div></div>
-    <div class="card" onclick="setMetric('alt')"><div class="lbl">Высота</div><div class="val"><span id="v_alt">--</span> <span class="unit">м</span></div><div class="sub">над ур. моря</div></div>
+    <div class="card" style="cursor:default"><div class="lbl">Высота</div><div class="val"><span id="v_alt">--</span> <span class="unit">м</span></div><div class="sub">над ур. моря</div></div>
   </div>
   <div class="panel">
     <h2 id="chartTitle">График: Улица</h2>
@@ -51,7 +51,6 @@ h1{font-size:1.3rem;margin-bottom:12px;display:flex;align-items:center;gap:10px;
       <button class="rbtn active" id="m_out" onclick="setMetric('out')">Улица</button>
       <button class="rbtn" id="m_in" onclick="setMetric('in')">Дом</button>
       <button class="rbtn" id="m_press" onclick="setMetric('press')">Давление</button>
-      <button class="rbtn" id="m_alt" onclick="setMetric('alt')">Высота</button>
     </div>
     <div>
       <button class="rbtn active" id="r_day" onclick="setRange('day')">День</button>
@@ -79,8 +78,8 @@ h1{font-size:1.3rem;margin-bottom:12px;display:flex;align-items:center;gap:10px;
 <script>
 var HOST = (location.protocol === 'file:') ? 'http://esp.local' : location.origin;
 var metric='out', range='day', chart=null, libsReady=false, cfgFilled=false;
-var metricNames={out:'Улица',in:'Дом',press:'Давление',alt:'Высота'};
-var metricUnits={out:'°C',in:'°C',press:'мм рт. ст.',alt:'м'};
+var metricNames={out:'Улица',in:'Дом',press:'Давление'};
+var metricUnits={out:'°C',in:'°C',press:'мм рт. ст.'};
 
 document.getElementById('footHost').textContent = HOST;
 
