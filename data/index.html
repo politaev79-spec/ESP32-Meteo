@@ -14,6 +14,11 @@ h1{font-size:1.3rem;margin-bottom:12px;display:flex;align-items:center;gap:10px;
 .dot.on{background:var(--ok)}
 .muted{color:var(--dim);font-size:.8rem}
 .ota{margin-left:auto;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:5px 10px;color:var(--acc);text-decoration:none;font-size:.8rem}
+.clock{text-align:center;margin:2px 0 18px;padding:16px 12px;background:linear-gradient(180deg,rgba(61,155,255,.12),rgba(61,155,255,0));border:1px solid var(--line);border-radius:16px}
+.clock-time{font-size:2.4rem;font-weight:600;letter-spacing:.05em;line-height:1.1;font-variant-numeric:tabular-nums}
+.clock-date{color:var(--dim);font-size:.85rem;margin-top:5px;letter-spacing:.05em;text-transform:capitalize}
+.clock.off .clock-time{color:var(--warn);font-size:1.9rem}
+@media(max-width:520px){.clock-time{font-size:1.9rem}}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:14px}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;cursor:pointer;transition:border-color .15s}
 .card:hover{border-color:var(--acc)}
@@ -38,6 +43,11 @@ h1{font-size:1.3rem;margin-bottom:12px;display:flex;align-items:center;gap:10px;
 <body>
 <div class="wrap">
   <h1>🌡 Метеостанция <span class="dot" id="dot"></span><span class="muted" id="status">подключение…</span><a class="ota" href="/ota">⚙ OTA</a></h1>
+
+  <div class="clock" id="clock">
+    <div class="clock-time" id="clkTime">--:--:--</div>
+    <div class="clock-date" id="clkDate">загрузка…</div>
+  </div>
 
   <div class="grid">
     <div class="card" onclick="setMetric('out')"><div class="lbl">Улица</div><div class="val"><span id="v_out">--</span> <span class="unit">°C</span></div></div>
@@ -131,6 +141,7 @@ function refresh(){
       document.getElementById('v_abs').textContent   = (d.pressAbs!=null) ? d.pressAbs.toFixed(1) : '--';
       document.getElementById('v_alt').textContent   = d.alt.toFixed(1);
       document.getElementById('stTime').textContent  = fmtStationTime(d.epoch);
+      setClock(d.epoch);
       fillCfg(d);
     } else {
       setStatus(false, 'датчики не найдены');
@@ -230,6 +241,31 @@ function setTimeFromInput(){
   el.value = n.getFullYear() + '-' + p(n.getMonth() + 1) + '-' + p(n.getDate()) + 'T'
            + p(n.getHours()) + ':' + p(n.getMinutes()) + ':' + p(n.getSeconds());
 })();
+
+// --- часы вверху страницы (время станции) ---
+var clkBase = 0, clkMs = 0;
+function setClock(epoch){
+  if(epoch && epoch > 1000000000){ clkBase = epoch; clkMs = Date.now(); }
+  else clkBase = 0;
+  tickClock();
+}
+function tickClock(){
+  var box = document.getElementById('clock');
+  var tEl = document.getElementById('clkTime');
+  var dEl = document.getElementById('clkDate');
+  if(!clkBase){
+    box.classList.add('off');
+    tEl.textContent = '--:--:--';
+    dEl.textContent = 'время станции не задано — задайте в панели ниже';
+    return;
+  }
+  box.classList.remove('off');
+  var d = new Date((clkBase + Math.floor((Date.now() - clkMs) / 1000)) * 1000);
+  var p = function(x){ return (x < 10 ? '0' : '') + x; };
+  tEl.textContent = p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds());
+  dEl.textContent = d.toLocaleDateString('ru-RU', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
+}
+setInterval(tickClock, 1000);
 
 bootstrap();
 refresh();
