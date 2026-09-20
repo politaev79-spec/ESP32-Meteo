@@ -15,7 +15,7 @@ void settingsLoad() {
     g_refAlt = prefs.isKey("refalt") ? prefs.getFloat("refalt", REF_ALTITUDE)       : REF_ALTITUDE;
     g_dsOff  = prefs.isKey("dsoff")  ? prefs.getFloat("dsoff", DS18B20_CAL_OFFSET)  : DS18B20_CAL_OFFSET;
     g_bmpOff = prefs.isKey("bmpoff") ? prefs.getFloat("bmpoff", BMP_TEMP_CAL_OFFSET) : BMP_TEMP_CAL_OFFSET;
-    g_apSsid = prefs.getString("apssid", AP_SSID);
+    g_apSsid = prefs.isKey("apssid") ? prefs.getString("apssid", AP_SSID) : String(AP_SSID);
     g_apSsid.trim();
     if (g_apSsid.length() == 0 || g_apSsid.length() > 32) g_apSsid = AP_SSID;   // защита от мусора в NVS
 }
