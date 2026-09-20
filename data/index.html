@@ -91,7 +91,7 @@ h1{font-size:1.3rem;margin-bottom:12px;display:flex;align-items:center;gap:10px;
       <button class="sbtn" onclick="setTimeFromBrowser()">Взять с этого устройства</button>
       <span class="muted" id="timeMsg"></span>
     </div>
-    <div class="muted" style="margin-top:8px">У станции нет интернета (NTP недоступен), поэтому время задаётся вручную и хранится в памяти. Подписи на графиках используют это время.</div>
+    <div class="muted" style="margin-top:8px">У станции нет интернета (NTP недоступен). Время <b>подставляется автоматически</b> с этого устройства при открытии страницы и хранится в памяти. Кнопки ниже — только для ручной правки. Подписи на графиках используют это время.</div>
   </div>
 
   <div class="panel">
@@ -142,6 +142,7 @@ function refresh(){
       document.getElementById('v_alt').textContent   = d.alt.toFixed(1);
       document.getElementById('stTime').textContent  = fmtStationTime(d.epoch);
       setClock(d.epoch);
+      if(!autoTimeSynced){ autoTimeSynced = true; autoSyncTime(); }   // берём время с устройства автоматически
       fillCfg(d);
     } else {
       setStatus(false, 'датчики не найдены');
@@ -241,6 +242,20 @@ function setTimeFromInput(){
   el.value = n.getFullYear() + '-' + p(n.getMonth() + 1) + '-' + p(n.getDate()) + 'T'
            + p(n.getHours()) + ':' + p(n.getMinutes()) + ':' + p(n.getSeconds());
 })();
+
+// --- автосинхронизация времени с устройства (при открытии страницы и раз в 10 мин) ---
+var autoTimeSynced = false;
+function autoSyncTime(){
+  if(Date.now() < 1600000000000) return;                 // часы устройства явно не выставлены
+  var e  = Math.floor(Date.now() / 1000);
+  var tz = -new Date().getTimezoneOffset() * 60;          // UTC+11 => 39600
+  fetch(u('/settime?epoch=' + e + '&tz=' + tz)).then(function(r){ return r.json(); }).then(function(d){
+    var m = document.getElementById('timeMsg');
+    if(m) m.textContent = '✓ время взято с этого устройства';
+    setClock(d.epoch);
+  }).catch(function(){});
+}
+setInterval(autoSyncTime, 600000);   // раз в 10 минут — корректируем дрейф часов станции
 
 // --- часы вверху страницы (время станции) ---
 var clkBase = 0, clkMs = 0;
