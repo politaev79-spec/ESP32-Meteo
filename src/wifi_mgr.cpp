@@ -27,8 +27,8 @@ void wifiApply() {
     }
 
     WiFi.softAPConfig(IPAddress(AP_IP), IPAddress(AP_GATEWAY), IPAddress(AP_SUBNET));
-    WiFi.softAP(AP_SSID, nullptr, AP_CHANNEL, false, AP_MAX_CONNECT);
-    LOG.printf("AP: %s  IP: %s\r\n", AP_SSID, WiFi.softAPIP().toString().c_str());
+    WiFi.softAP(g_apSsid.c_str(), nullptr, AP_CHANNEL, false, AP_MAX_CONNECT);
+    LOG.printf("AP: %s  IP: %s\r\n", g_apSsid.c_str(), WiFi.softAPIP().toString().c_str());
 
     // mDNS: короткое имя http://esp.local
     if (MDNS.begin("esp")) {

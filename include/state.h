@@ -19,3 +19,4 @@ extern volatile uint32_t g_lastRead;
 
 // Настройки (определяются в settings.cpp)
 extern float g_refAlt, g_dsOff, g_bmpOff;
+extern String g_apSsid;                 // имя точки доступа (Wi-Fi) — можно менять со страницы

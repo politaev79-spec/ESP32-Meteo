@@ -10,6 +10,7 @@
 #include "history.h"
 #include "static_files.h"
 #include "clock.h"
+#include "utils.h"
 #include <time.h>
 
 HWCDC usbLog;
@@ -38,6 +39,7 @@ static void handleApi() {
     s += ",\"dsoff\":" + String(g_dsOff, 1);
     s += ",\"bmpoff\":" + String(g_bmpOff, 1);
     s += ",\"apip\":\"" + WiFi.softAPIP().toString() + "\"";
+    s += ",\"apname\":\"" + jsonEscape(g_apSsid) + "\"";
     s += ",\"epoch\":" + String(clockEpoch()) + ",\"tz\":" + String(clockTz());
     s += "}";
     server.send(200, "application/json", s);
@@ -58,6 +60,24 @@ static void handleSave() {
     s += ",\"bmpoff\":" + String(g_bmpOff, 1);
     s += "}";
     server.send(200, "application/json", s);
+}
+
+// ---- Смена имени точки доступа ----
+static bool     g_apRestartPending = false;
+static uint32_t g_apRestartAt = 0;
+
+static void handleSetAp() {
+    if (!server.hasArg("name")) { server.send(400, "text/plain", "no name"); return; }
+    String n = server.arg("name");
+    n.trim();
+    if (n.length() == 0 || n.length() > 32) { server.send(400, "text/plain", "bad name"); return; }
+
+    g_apSsid = n;
+    settingsSave();
+    g_apRestartPending = true;                 // перезапустим AP чуть позже — чтобы ответ успел уйти
+    g_apRestartAt = millis() + 1200;
+
+    server.send(200, "application/json", "{\"ok\":true,\"apname\":\"" + jsonEscape(g_apSsid) + "\"}");
 }
 
 // ---- Установка даты/времени (для графиков) ----
@@ -93,6 +113,7 @@ void setup() {
     server.on("/save", HTTP_GET, handleSave);
     server.on("/history", HTTP_GET, handleHistory);
     server.on("/settime", HTTP_GET, handleSetTime);
+    server.on("/setap", HTTP_GET, handleSetAp);
     staticFilesBegin(); // / и /dashboard — единая страница; /chart.js — графики
     otaBegin();     // /ota + /update (обновление прошивки)
     server.enableCORS(true);   // разрешаем обращаться к API с любого адреса
@@ -104,6 +125,13 @@ void setup() {
 void loop() {
     server.handleClient();
     uint32_t now = millis();
+
+    // Перезапуск точки доступа после смены имени (клиент отключится — нужно переподключиться)
+    if (g_apRestartPending && (int32_t)(now - g_apRestartAt) >= 0) {
+        g_apRestartPending = false;
+        LOG.println("[AP] перезапуск с новым именем...");
+        wifiApply();
+    }
 
     // Живой опрос датчиков (частый) — вывод в терминал + свежие данные на странице
     if ((uint32_t)(now - g_lastRead) >= SENSOR_LIVE_MS) {

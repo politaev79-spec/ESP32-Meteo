@@ -84,6 +84,16 @@ h1{font-size:1.3rem;margin-bottom:12px;display:flex;align-items:center;gap:10px;
     <div class="muted" style="margin-top:8px">У станции нет интернета (NTP недоступен), поэтому время задаётся вручную и хранится в памяти. Подписи на графиках используют это время.</div>
   </div>
 
+  <div class="panel">
+    <h2>Точка доступа (Wi-Fi)</h2>
+    <div class="row">
+      <input id="apName" maxlength="32" placeholder="esp.local">
+      <button class="sbtn" onclick="setApName()">Сменить имя</button>
+      <span class="muted" id="apMsg"></span>
+    </div>
+    <div class="muted" style="margin-top:8px">После смены сеть перезапустится: нужно заново подключиться к Wi-Fi с новым именем. Адрес остаётся http://192.168.4.1</div>
+  </div>
+
   <div class="muted">Обновление каждые 15 с · <span id="footHost"></span></div>
 </div>
 
@@ -134,6 +144,7 @@ function fillCfg(d){
   document.getElementById('cf_refalt').value = d.refalt;
   document.getElementById('cf_dsoff').value  = d.dsoff;
   document.getElementById('cf_bmpoff').value = d.bmpoff;
+  document.getElementById('apName').value    = d.apname || '';
   cfgFilled = true;
 }
 
@@ -173,6 +184,17 @@ function saveCfg(){
     m.textContent='✓ Сохранено (высота '+d.refalt+' м)';
     refresh();
   }).catch(function(){ m.textContent='Ошибка сохранения'; });
+}
+
+// --- смена имени точки доступа ---
+function setApName(){
+  var n = document.getElementById('apName').value.trim();
+  var m = document.getElementById('apMsg');
+  if(!n){ m.textContent = 'Введите имя'; return; }
+  m.textContent = 'Смена…';
+  fetch(u('/setap?name=' + encodeURIComponent(n))).then(function(r){ return r.json(); }).then(function(d){
+    m.textContent = '✓ Имя изменено на «' + d.apname + '» — переподключитесь к этой сети';
+  }).catch(function(){ m.textContent = 'Смена отправлена (сеть перезапускается)'; });
 }
 
 // --- дата/время станции (для подписей графиков) ---
