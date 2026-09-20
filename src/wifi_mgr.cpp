@@ -3,6 +3,9 @@
 #include "log.h"
 #include <WiFi.h>
 #include <ESPmDNS.h>
+#include <DNSServer.h>
+
+static DNSServer dns;               // Captive Portal: отвечает на любой домен нашим IP
 
 void wifiApply() {
     // Автономный режим: только точка доступа. Без STA нет переключений канала
@@ -37,5 +40,18 @@ void wifiApply() {
     } else {
         LOG.println("mDNS: failed");
     }
+
+    // ---- Captive Portal: DNS отвечает на ЛЮБОЙ домен нашим IP ----
+    // Тогда телефон при подключении сам покажет «Войти в сеть» и откроет нашу страницу.
+    dns.stop();
+    if (dns.start(53, "*", WiFi.softAPIP())) {
+        LOG.printf("Captive Portal: DNS * -> %s\r\n", WiFi.softAPIP().toString().c_str());
+    } else {
+        LOG.println("Captive Portal: DNS не запустился");
+    }
+}
+
+void wifiDnsPoll() {
+    dns.processNextRequest();
 }
 

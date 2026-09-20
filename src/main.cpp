@@ -97,6 +97,13 @@ static void handleHistory() {
     server.send(200, "application/json", historyJson(m, r));
 }
 
+// ---- Captive Portal: любой неизвестный запрос (проверки ОС, чужие домены) — на нашу страницу ----
+static void handleNotFound() {
+    if (server.uri() == "/favicon.ico") { server.send(204, "text/plain", ""); return; }
+    server.sendHeader("Location", "http://" + WiFi.softAPIP().toString() + "/", true);
+    server.send(302, "text/plain", "");
+}
+
 void setup() {
     LOG.begin(115200);
     delay(200);
@@ -114,6 +121,7 @@ void setup() {
     server.on("/history", HTTP_GET, handleHistory);
     server.on("/settime", HTTP_GET, handleSetTime);
     server.on("/setap", HTTP_GET, handleSetAp);
+    server.onNotFound(handleNotFound);   // Captive Portal: всё прочее -> на нашу страницу
     staticFilesBegin(); // / и /dashboard — единая страница; /chart.js — графики
     otaBegin();     // /ota + /update (обновление прошивки)
     server.enableCORS(true);   // разрешаем обращаться к API с любого адреса
@@ -124,6 +132,7 @@ void setup() {
 
 void loop() {
     server.handleClient();
+    wifiDnsPoll();               // Captive Portal: отвечаем на DNS-запросы клиентов
     uint32_t now = millis();
 
     // Перезапуск точки доступа после смены имени (клиент отключится — нужно переподключиться)
