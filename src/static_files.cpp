@@ -3,6 +3,7 @@
 #include <LittleFS.h>
 
 static void handleChartJs() {
+    server.sendHeader("Connection", "close");   // у ESP32-сервера один клиент за раз — не держим соединение
     File f = LittleFS.open("/chart.js", "r");
     if (!f) { server.send(404, "text/plain", "nf"); return; }
     server.streamFile(f, "application/javascript");
@@ -11,6 +12,7 @@ static void handleChartJs() {
 
 // Единая страница станции (data/index.html) — открывается по / и /dashboard
 static void handleIndex() {
+    server.sendHeader("Connection", "close");   // у ESP32-сервера один клиент за раз — не держим соединение
     File f = LittleFS.open("/index.html", "r");
     if (!f) { server.send(404, "text/html; charset=utf-8", "<h3>index.html не загружен в LittleFS</h3>"); return; }
     server.streamFile(f, "text/html; charset=utf-8");

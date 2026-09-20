@@ -43,6 +43,7 @@ static void handleApi() {
     s += ",\"epoch\":" + String(clockEpoch()) + ",\"tz\":" + String(clockTz());
     s += ",\"test\":" + String(g_testMode ? "true" : "false");
     s += "}";
+    server.sendHeader("Connection", "close");
     server.send(200, "application/json", s);
 }
 
@@ -95,6 +96,7 @@ static void handleSetTime() {
 static void handleHistory() {
     String m = server.hasArg("metric") ? server.arg("metric") : "out";
     String r = server.hasArg("range") ? server.arg("range") : "day";
+    server.sendHeader("Connection", "close");
     server.send(200, "application/json", historyJson(m, r));
 }
 
@@ -114,8 +116,9 @@ static void handleHistClear() {
 
 // ---- Captive Portal: любой неизвестный запрос (проверки ОС, чужие домены) — на нашу страницу ----
 static void handleNotFound() {
+    server.sendHeader("Connection", "close");   // проверки ОС ходят часто — не держим соединение
     if (server.uri() == "/favicon.ico") { server.send(204, "text/plain", ""); return; }
-    server.sendHeader("Location", "http://" + WiFi.softAPIP().toString() + "/", true);
+    server.sendHeader("Location", "http://" + WiFi.softAPIP().toString() + "/");
     server.send(302, "text/plain", "");
 }
 

@@ -128,7 +128,7 @@ function loadJs(src, cb){
   document.head.appendChild(s);
 }
 function bootstrap(){
-  loadJs(u('/chart.js'), function(){ libsReady=true; refresh(); loadCharts(); });
+  loadJs(u('/chart.js'), function(){ libsReady=true; refresh(); setTimeout(loadCharts, 600); });
 }
 
 function setStatus(on, txt){
@@ -172,12 +172,15 @@ function setRange(r){
   document.getElementById('r_' + r).classList.add('active');
   loadCharts();
 }
-// Три отдельных графика: Улица / Помещение / Давление
+// Три отдельных графика: Улица / Помещение / Давление.
+// Грузим ПОСЛЕДОВАТЕЛЬНО — у ESP32-сервера одновременно только один клиент.
 function loadCharts(){
   if(!libsReady || typeof Chart === 'undefined') return;
-  chartMetrics.forEach(loadOneChart);
+  var i = 0;
+  var next = function(){ if(i < chartMetrics.length) loadOneChart(chartMetrics[i++], next); };
+  next();
 }
-function loadOneChart(m){
+function loadOneChart(m, done){
   fetch(u('/history?metric=' + m + '&range=' + range)).then(function(r){ return r.json(); }).then(function(d){
     var data = d.data || [], labels = [], vals = [];
     for(var i=0;i<data.length;i++){ if(data[i]<=-900) continue; labels.push(d.labels[i]); vals.push(data[i]); }
@@ -191,18 +194,17 @@ function loadOneChart(m){
         scales:{x:{ticks:{color:'#8a93a6', maxTicksLimit:6, autoSkip:true}, grid:{color:'rgba(138,147,166,.1)'}},
                 y:{ticks:{color:'#8a93a6'}, grid:{color:'rgba(138,147,166,.1)'}}}}
     });
-  }).catch(function(){});
+  }).catch(function(){}).then(function(){ if(done) done(); });
 }
 // --- тестовый режим (запись истории раз в 15 с) ---
 function toggleTest(){
-  fetch(u('/test')).then(function(r){ return r.json(); }).then(function(d){ setTestUI(d.test); }).catch(function(){});
+  fetch(u('/test')).then(function(r){ return r.json(); }).then(function(d){ setTestUI(d.test); loadCharts(); }).catch(function(){});
 }
 function setTestUI(on){
   var el = document.getElementById('v_test');
   if(el) el.textContent = on ? 'ВКЛ' : 'выкл';
   var c = document.getElementById('cardTest');
   if(c) c.style.borderColor = on ? 'var(--ok)' : 'var(--line)';
-  if(on) loadCharts();
 }
 function clearHist(){
   if(!confirm('Очистить всю историю? Графики начнутся заново.')) return;
@@ -311,6 +313,7 @@ setInterval(tickClock, 1000);
 bootstrap();
 refresh();
 setInterval(refresh, 15000);
+setInterval(loadCharts, 60000);   // графики перечитываем раз в минуту (последовательно)
 </script>
 </body>
 </html>
