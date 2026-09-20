@@ -41,6 +41,7 @@ static void handleApi() {
     s += ",\"apip\":\"" + WiFi.softAPIP().toString() + "\"";
     s += ",\"apname\":\"" + jsonEscape(g_apSsid) + "\"";
     s += ",\"epoch\":" + String(clockEpoch()) + ",\"tz\":" + String(clockTz());
+    s += ",\"test\":" + String(g_testMode ? "true" : "false");
     s += "}";
     server.send(200, "application/json", s);
 }
@@ -97,6 +98,20 @@ static void handleHistory() {
     server.send(200, "application/json", historyJson(m, r));
 }
 
+// ---- Тестовый режим: запись истории раз в 15 с (для быстрой проверки графиков) ----
+static void handleTest() {
+    g_testMode = server.hasArg("on") ? (server.arg("on") == "1") : !g_testMode;
+    settingsSave();
+    String s = String("{\"ok\":true,\"test\":") + (g_testMode ? "true" : "false") + "}";
+    server.send(200, "application/json", s);
+}
+
+// ---- Очистка истории (сброс графиков) ----
+static void handleHistClear() {
+    historyClear();
+    server.send(200, "application/json", "{\"ok\":true}");
+}
+
 // ---- Captive Portal: любой неизвестный запрос (проверки ОС, чужие домены) — на нашу страницу ----
 static void handleNotFound() {
     if (server.uri() == "/favicon.ico") { server.send(204, "text/plain", ""); return; }
@@ -121,6 +136,8 @@ void setup() {
     server.on("/history", HTTP_GET, handleHistory);
     server.on("/settime", HTTP_GET, handleSetTime);
     server.on("/setap", HTTP_GET, handleSetAp);
+    server.on("/test", HTTP_GET, handleTest);           // тестовый режим (запись раз в 15 с)
+    server.on("/histclear", HTTP_GET, handleHistClear); // очистка истории
     server.onNotFound(handleNotFound);   // Captive Portal: всё прочее -> на нашу страницу
     staticFilesBegin(); // / и /dashboard — единая страница; /chart.js — графики
     otaBegin();     // /ota + /update (обновление прошивки)
@@ -148,10 +165,10 @@ void loop() {
         sensorsPoll();
     }
 
-    // Запись в историю — раз в SENSOR_INTERVAL_MS (15 мин).
-    // Первый семпл пишем сразу после старта.
+    // Запись в историю: обычно раз в 15 мин, в тестовом режиме — раз в 15 с.
+    uint32_t histIv = g_testMode ? SENSOR_TEST_MS : SENSOR_INTERVAL_MS;
     static uint32_t lastHist = (uint32_t)(0 - SENSOR_INTERVAL_MS);
-    if ((uint32_t)(now - lastHist) >= SENSOR_INTERVAL_MS) {
+    if ((uint32_t)(now - lastHist) >= histIv) {
         lastHist = now;
         historyAdd(g_outTemp, g_temp, g_press, g_alt);   // в историю — давление НА СТАНЦИИ (абсолютное)
     }

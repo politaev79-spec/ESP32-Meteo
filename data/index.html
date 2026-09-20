@@ -18,6 +18,8 @@ h1{font-size:1.3rem;margin-bottom:12px;display:flex;align-items:center;gap:10px;
 .clock-time{font-size:2.4rem;font-weight:600;letter-spacing:.05em;line-height:1.1;font-variant-numeric:tabular-nums}
 .clock-date{color:var(--dim);font-size:.85rem;margin-top:5px;letter-spacing:.05em;text-transform:capitalize}
 .clock.off .clock-time{color:var(--warn);font-size:1.9rem}
+.chartcap{color:var(--dim);font-size:.82rem;margin:14px 0 6px}
+.chartbox{height:200px}
 @media(max-width:520px){.clock-time{font-size:1.9rem}}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:14px}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;cursor:pointer;transition:border-color .15s}
@@ -50,25 +52,28 @@ h1{font-size:1.3rem;margin-bottom:12px;display:flex;align-items:center;gap:10px;
   </div>
 
   <div class="grid">
-    <div class="card" onclick="setMetric('out')"><div class="lbl">Улица</div><div class="val"><span id="v_out">--</span> <span class="unit">°C</span></div></div>
-    <div class="card" onclick="setMetric('in')"><div class="lbl">Дом</div><div class="val"><span id="v_in">--</span> <span class="unit">°C</span></div></div>
-    <div class="card" onclick="setMetric('press')"><div class="lbl">Давление на станции</div><div class="val"><span id="v_abs">--</span> <span class="unit">мм рт. ст.</span></div><div class="sub">на ур. моря: <span id="v_press">--</span></div></div>
+    <div class="card" style="cursor:default"><div class="lbl">Улица</div><div class="val"><span id="v_out">--</span> <span class="unit">°C</span></div></div>
+    <div class="card" style="cursor:default"><div class="lbl">Помещение</div><div class="val"><span id="v_in">--</span> <span class="unit">°C</span></div></div>
+    <div class="card" style="cursor:default"><div class="lbl">Давление на станции</div><div class="val"><span id="v_abs">--</span> <span class="unit">мм рт. ст.</span></div><div class="sub">на ур. моря: <span id="v_press">--</span></div></div>
     <div class="card" style="cursor:default"><div class="lbl">Высота</div><div class="val"><span id="v_alt">--</span> <span class="unit">м</span></div><div class="sub">над ур. моря</div></div>
+    <div class="card" id="cardTest" onclick="toggleTest()"><div class="lbl">Тест</div><div class="val"><span id="v_test">выкл</span></div><div class="sub">запись раз в 15 с</div></div>
   </div>
+
   <div class="panel">
-    <h2 id="chartTitle">График: Улица</h2>
-    <div>
-      <button class="rbtn active" id="m_out" onclick="setMetric('out')">Улица</button>
-      <button class="rbtn" id="m_in" onclick="setMetric('in')">Дом</button>
-      <button class="rbtn" id="m_press" onclick="setMetric('press')">Давление</button>
-    </div>
+    <h2>Графики</h2>
     <div>
       <button class="rbtn active" id="r_day" onclick="setRange('day')">День</button>
       <button class="rbtn" id="r_week" onclick="setRange('week')">Неделя</button>
       <button class="rbtn" id="r_month" onclick="setRange('month')">Месяц</button>
       <button class="rbtn" id="r_year" onclick="setRange('year')">Год</button>
+      <span style="float:right"><a href="#" onclick="clearHist();return false;" style="color:var(--dim);font-size:.8rem">очистить историю</a></span>
     </div>
-    <div style="height:280px"><canvas id="chart"></canvas></div>
+    <div class="chartcap">Улица, °C</div>
+    <div class="chartbox"><canvas id="chart_out"></canvas></div>
+    <div class="chartcap">Помещение, °C</div>
+    <div class="chartbox"><canvas id="chart_in"></canvas></div>
+    <div class="chartcap">Давление на станции, мм рт. ст.</div>
+    <div class="chartbox"><canvas id="chart_press"></canvas></div>
   </div>
 
   <div class="panel">
@@ -76,7 +81,7 @@ h1{font-size:1.3rem;margin-bottom:12px;display:flex;align-items:center;gap:10px;
     <div class="cfg">
       <label class="full">Высота над ур. моря, м<input id="cf_refalt" type="number" step="1" value="0"></label>
       <label>Поправка ул. T, °C<input id="cf_dsoff" type="number" step="0.1" value="0"></label>
-      <label>Поправка дома T, °C<input id="cf_bmpoff" type="number" step="0.1" value="0"></label>
+      <label>Поправка помещения T, °C<input id="cf_bmpoff" type="number" step="0.1" value="0"></label>
       <div class="full"><button class="sbtn" onclick="saveCfg()">Сохранить</button> <span class="muted" id="cfgMsg"></span></div>
     </div>
     <div class="muted" style="margin-top:10px">«Давление на станции» — то, что реально измеряет датчик на вашей высоте. «На ур. моря» — то же давление, пересчитанное на уровень моря (метеостандарт, для сравнения с прогнозами). От высоты зависит только эта пересчитанная величина.</div>
@@ -109,9 +114,9 @@ h1{font-size:1.3rem;margin-bottom:12px;display:flex;align-items:center;gap:10px;
 
 <script>
 var HOST = (location.protocol === 'file:') ? 'http://esp.local' : location.origin;
-var metric='out', range='day', chart=null, libsReady=false, cfgFilled=false;
-var metricNames={out:'Улица',in:'Дом',press:'Давление на станции'};
-var metricUnits={out:'°C',in:'°C',press:'мм рт. ст.'};
+var range='day', libsReady=false, cfgFilled=false, charts={};
+var chartMetrics=['out','in','press'];
+var chartNames={out:'Улица, °C',in:'Помещение, °C',press:'Давление на станции, мм рт. ст.'};
 
 document.getElementById('footHost').textContent = HOST;
 
@@ -123,7 +128,7 @@ function loadJs(src, cb){
   document.head.appendChild(s);
 }
 function bootstrap(){
-  loadJs(u('/chart.js'), function(){ libsReady=true; refresh(); loadChart(); });
+  loadJs(u('/chart.js'), function(){ libsReady=true; refresh(); loadCharts(); });
 }
 
 function setStatus(on, txt){
@@ -143,6 +148,7 @@ function refresh(){
       document.getElementById('stTime').textContent  = fmtStationTime(d.epoch);
       setClock(d.epoch);
       if(!autoTimeSynced){ autoTimeSynced = true; autoSyncTime(); }   // берём время с устройства автоматически
+      setTestUI(!!d.test);
       fillCfg(d);
     } else {
       setStatus(false, 'датчики не найдены');
@@ -160,28 +166,48 @@ function fillCfg(d){
   cfgFilled = true;
 }
 
-function setMetric(m){
-  metric = m;
-  document.getElementById('chartTitle').textContent = 'График: ' + metricNames[m];
-  document.querySelectorAll('[id^="m_"]').forEach(function(b){ b.classList.remove('active'); });
-  document.getElementById('m_' + m).classList.add('active');
-  loadChart();
-}
 function setRange(r){
   range = r;
   document.querySelectorAll('[id^="r_"]').forEach(function(b){ b.classList.remove('active'); });
   document.getElementById('r_' + r).classList.add('active');
-  loadChart();
+  loadCharts();
 }
-function loadChart(){
+// Три отдельных графика: Улица / Помещение / Давление
+function loadCharts(){
   if(!libsReady || typeof Chart === 'undefined') return;
-  fetch(u('/history?metric=' + metric + '&range=' + range)).then(function(r){ return r.json(); }).then(function(d){
+  chartMetrics.forEach(loadOneChart);
+}
+function loadOneChart(m){
+  fetch(u('/history?metric=' + m + '&range=' + range)).then(function(r){ return r.json(); }).then(function(d){
     var data = d.data || [], labels = [], vals = [];
     for(var i=0;i<data.length;i++){ if(data[i]<=-900) continue; labels.push(d.labels[i]); vals.push(data[i]); }
-    var ctx = document.getElementById('chart').getContext('2d');
-    if(chart) chart.destroy();
-    chart = new Chart(ctx,{type:'line',data:{labels:labels,datasets:[{label:metricNames[metric]+', '+metricUnits[metric],data:vals,borderColor:'#3d9bff',backgroundColor:'rgba(61,155,255,.15)',fill:true,tension:0.3,pointRadius:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#8a93a6',maxTicksLimit:8,autoSkip:true},grid:{color:'rgba(138,147,166,.1)'}},y:{ticks:{color:'#8a93a6'},grid:{color:'rgba(138,147,166,.1)'}}}}});
+    var el = document.getElementById('chart_' + m);
+    if(!el) return;
+    if(charts[m]) charts[m].destroy();
+    charts[m] = new Chart(el.getContext('2d'), {
+      type:'line',
+      data:{labels:labels, datasets:[{label:chartNames[m], data:vals, borderColor:'#3d9bff', backgroundColor:'rgba(61,155,255,.15)', fill:true, tension:0.3, pointRadius:(vals.length <= 60 ? 3 : 0), pointBackgroundColor:'#3d9bff'}]},
+      options:{responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}},
+        scales:{x:{ticks:{color:'#8a93a6', maxTicksLimit:6, autoSkip:true}, grid:{color:'rgba(138,147,166,.1)'}},
+                y:{ticks:{color:'#8a93a6'}, grid:{color:'rgba(138,147,166,.1)'}}}}
+    });
   }).catch(function(){});
+}
+// --- тестовый режим (запись истории раз в 15 с) ---
+function toggleTest(){
+  fetch(u('/test')).then(function(r){ return r.json(); }).then(function(d){ setTestUI(d.test); }).catch(function(){});
+}
+function setTestUI(on){
+  var el = document.getElementById('v_test');
+  if(el) el.textContent = on ? 'ВКЛ' : 'выкл';
+  var c = document.getElementById('cardTest');
+  if(c) c.style.borderColor = on ? 'var(--ok)' : 'var(--line)';
+  if(on) loadCharts();
+}
+function clearHist(){
+  if(!confirm('Очистить всю историю? Графики начнутся заново.')) return;
+  fetch(u('/histclear')).then(function(r){ return r.json(); }).then(function(){ loadCharts(); }).catch(function(){});
+}
 }
 // --- сохранение настроек на станцию ---
 function saveCfg(){
@@ -219,7 +245,7 @@ function sendTime(e, tz){
   m.textContent = 'Отправка…';
   fetch(u('/settime?epoch=' + e + '&tz=' + tz)).then(function(r){ return r.json(); }).then(function(d){
     m.textContent = '✓ Установлено: ' + fmtStationTime(d.epoch);
-    refresh(); loadChart();
+    refresh(); loadCharts();
   }).catch(function(){ m.textContent = 'Ошибка установки времени'; });
 }
 function setTimeFromBrowser(){

@@ -62,6 +62,17 @@ void historyBegin() {
     if (g_head >= CAPACITY) g_head = 0;
 }
 
+void historyClear() {
+    size_t need = (size_t)CAPACITY * sizeof(Sample);
+    LittleFS.remove(HIST_FILE);
+    File nf = LittleFS.open(HIST_FILE, "w");
+    if (nf) { nf.seek(need - 1); nf.write((uint8_t)0); nf.close(); }
+    g_head = 0; g_count = 0;
+    hPrefs.putUInt("head", 0);
+    hPrefs.putUInt("count", 0);
+    LOG.println("История: буфер очищен вручную");
+}
+
 void historyAdd(float outT, float inT, float pressPa, float altM) {
     Sample s;
     s.ts = nowTs();

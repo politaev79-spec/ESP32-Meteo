@@ -9,6 +9,7 @@ float g_refAlt = REF_ALTITUDE;
 float g_dsOff  = DS18B20_CAL_OFFSET;
 float g_bmpOff = BMP_TEMP_CAL_OFFSET;
 String g_apSsid = AP_SSID;              // имя точки доступа (по умолчанию из config.h)
+bool   g_testMode = false;              // тестовый режим (быстрая запись истории)
 
 void settingsLoad() {
     prefs.begin("meteo", false);
@@ -18,6 +19,7 @@ void settingsLoad() {
     g_apSsid = prefs.isKey("apssid") ? prefs.getString("apssid", AP_SSID) : String(AP_SSID);
     g_apSsid.trim();
     if (g_apSsid.length() == 0 || g_apSsid.length() > 32) g_apSsid = AP_SSID;   // защита от мусора в NVS
+    g_testMode = prefs.isKey("test") ? prefs.getBool("test", false) : false;
 }
 
 void settingsSave() {
@@ -25,4 +27,5 @@ void settingsSave() {
     prefs.putFloat("dsoff", g_dsOff);
     prefs.putFloat("bmpoff", g_bmpOff);
     prefs.putString("apssid", g_apSsid);
+    prefs.putBool("test", g_testMode);
 }
