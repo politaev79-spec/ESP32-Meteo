@@ -9,6 +9,7 @@
 #include "ota.h"
 #include "history.h"
 #include "static_files.h"
+#include "clock.h"
 #include <time.h>
 
 HWCDC usbLog;
@@ -37,6 +38,7 @@ static void handleApi() {
     s += ",\"dsoff\":" + String(g_dsOff, 1);
     s += ",\"bmpoff\":" + String(g_bmpOff, 1);
     s += ",\"apip\":\"" + WiFi.softAPIP().toString() + "\"";
+    s += ",\"epoch\":" + String(clockEpoch()) + ",\"tz\":" + String(clockTz());
     s += "}";
     server.send(200, "application/json", s);
 }
@@ -58,6 +60,16 @@ static void handleSave() {
     server.send(200, "application/json", s);
 }
 
+// ---- Установка даты/времени (для графиков) ----
+static void handleSetTime() {
+    if (!server.hasArg("epoch")) { server.send(400, "text/plain", "no epoch"); return; }
+    uint32_t e = (uint32_t)strtoul(server.arg("epoch").c_str(), nullptr, 10);
+    int tz = server.hasArg("tz") ? server.arg("tz").toInt() : clockTz();
+    clockSet(e, tz);
+    String s = "{\"ok\":true,\"epoch\":" + String(clockEpoch()) + ",\"tz\":" + String(clockTz()) + "}";
+    server.send(200, "application/json", s);
+}
+
 // ---- История показаний (графики) ----
 static void handleHistory() {
     String m = server.hasArg("metric") ? server.arg("metric") : "out";
@@ -73,13 +85,14 @@ void setup() {
     settingsLoad();    // настройки из NVS (координаты, поправки)
     wifiApply();       // точка доступа (автономный режим)
     historyBegin();    // история показаний (кольцевой буфер)
-    configTime(TZ_OFFSET_SECONDS, 0, "pool.ntp.org", "time.google.com");  // время по NTP
+    clockBegin();      // дата/время из NVS (NTP недоступен — время задаётся со страницы)
     sensorsBegin();    // датчики + первичное чтение
 
     // ---- Web ----
     server.on("/api", HTTP_GET, handleApi);
     server.on("/save", HTTP_GET, handleSave);
     server.on("/history", HTTP_GET, handleHistory);
+    server.on("/settime", HTTP_GET, handleSetTime);
     staticFilesBegin(); // / и /dashboard — единая страница; /chart.js — графики
     otaBegin();     // /ota + /update (обновление прошивки)
     server.enableCORS(true);   // разрешаем обращаться к API с любого адреса
