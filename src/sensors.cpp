@@ -100,9 +100,9 @@ bool sensorsPoll() {
 
     // ---- Живой вывод в терминал (отладка в реальном времени) ----
     uint32_t up = millis() / 1000;
-    LOG.printf("[%02lu:%02lu:%02lu] Улица %7.2f C | Дом %6.2f C | P %7.2f (абс %7.2f) мм рт.ст. | Высота %4.0f м\r\n",
+    LOG.printf("[%02lu:%02lu:%02lu] Улица %6.2f C | Дом %6.2f C | Давление: НА СТАНЦИИ %7.2f (абсолютное, мм рт.ст.) | приведено к ур. моря %7.2f | Высота %4.0f м\r\n",
                (unsigned long)(up / 3600), (unsigned long)((up / 60) % 60), (unsigned long)(up % 60),
                g_hasDs ? g_outTemp : -999.0f, g_temp,
-               g_refPressure / 133.322f, g_press / 133.322f, g_alt);
+               g_press / 133.322f, g_refPressure / 133.322f, g_alt);
     return okBmp || okDs;
 }
