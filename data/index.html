@@ -10,6 +10,7 @@
 body{background:var(--bg);color:var(--txt);font-family:'Segoe UI',system-ui,-apple-system,sans-serif;padding:16px;min-height:100vh}
 .wrap{max-width:880px;margin:0 auto}
 h1{font-size:1.3rem;margin-bottom:12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.logo{height:34px;width:auto;display:block;background:#fff;border-radius:8px;padding:3px 8px;flex:none}
 .dot{width:10px;height:10px;border-radius:50%;background:var(--warn);flex:none}
 .dot.on{background:var(--ok)}
 .muted{color:var(--dim);font-size:.8rem}
@@ -44,7 +45,7 @@ h1{font-size:1.3rem;margin-bottom:12px;display:flex;align-items:center;gap:10px;
 </head>
 <body>
 <div class="wrap">
-  <h1>🌡 Метеостанция <span class="dot" id="dot"></span><span class="muted" id="status">подключение…</span><a class="ota" href="/ota">⚙ OTA</a></h1>
+  <h1><img class="logo" src="logo.png" alt="AT MINING — Equipment Maintenance Services" onerror="this.style.display='none'">Метеостанция <span class="dot" id="dot"></span><span class="muted" id="status">подключение…</span><a class="ota" href="/ota">⚙ OTA</a></h1>
 
   <div class="clock" id="clock">
     <div class="clock-time" id="clkTime">--:--:--</div>
